@@ -1,12 +1,12 @@
 name: citra-build
 
 on:
-workflow_dispatch:  
+  workflow_dispatch:
   push:
-    branches: [ "*" ]
-    tags: [ "*" ]
+      branches: [ "*" ]
+      tags: [ "*" ]
   pull_request:
-    branches: [ master ]
+      branches: [ master ]
   
 
 permissions:
