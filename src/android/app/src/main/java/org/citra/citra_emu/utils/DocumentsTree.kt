@@ -258,6 +258,7 @@ class DocumentsTree {
     fun exists(filepath: String): Boolean = resolvePath(filepath) != null
 
 
+    
     @Synchronized
     fun copyFile(
         sourcePath: String,
@@ -290,49 +291,53 @@ class DocumentsTree {
             var destinationFile: File? = null
             var destinationDocument: DocumentFile? = null
 
-            if (destinationNode.file != null) {
-                val parentFile = destinationNode.file!!
-                val target = File(parentFile, filename)
+            try {
+                if (destinationNode.file != null) {
+                    val parentFile = destinationNode.file!!
+                    val target = File(parentFile, filename)
 
-                if (target.canonicalFile.parentFile != parentFile.canonicalFile) {
-                    return false
+                    if (target.canonicalFile.parentFile != parentFile.canonicalFile) {
+                        return false
+                    }
+
+                    if (!target.createNewFile()) return false
+                    destinationFile = target
+                } else {
+                    val parentUri = destinationNode.uri ?: return false
+                    val parent = DocumentFile.fromTreeUri(context, parentUri)
+                        ?: return false
+
+                    if (parent.findFile(filename)?.exists() == true) return false
+
+                    destinationDocument = parent.createFile(
+                        FileUtil.APPLICATION_OCTET_STREAM,
+                        filename
+                    ) ?: return false
                 }
 
-                if (!target.createNewFile()) return false
-                destinationFile = target
-            } else {
-                val parentUri = destinationNode.uri ?: return false
-                val parent = DocumentFile.fromTreeUri(context, parentUri)
-                    ?: return false
-
-                if (parent.findFile(filename)?.exists() == true) return false
-
-                destinationDocument = parent.createFile(
-                    FileUtil.APPLICATION_OCTET_STREAM,
-                    filename
-                ) ?: return false
-            }
-
-            try {
-                val input = sourceNode.file?.inputStream()
+                val sourceInput = sourceNode.file?.inputStream()
                     ?: run {
-                        val sourceUri = sourceNode.uri ?: return false
+                        val sourceUri = sourceNode.uri
+                            ?: throw IOException("Source URI unavailable")
+
                         context.contentResolver.openInputStream(sourceUri)
                             ?: throw IOException("Cannot open source file")
                     }
 
-                val output = destinationFile?.outputStream()
-                    ?: run {
-                        val destinationUri = destinationDocument?.uri
-                            ?: throw IOException("Destination URI unavailable")
+                sourceInput.use { input ->
+                    val destinationOutput = destinationFile?.outputStream()
+                        ?: run {
+                            val destinationUri = destinationDocument?.uri
+                                ?: throw IOException("Destination URI unavailable")
 
-                        context.contentResolver.openOutputStream(destinationUri, "wt")
-                            ?: throw IOException("Cannot open destination file")
-                    }
+                            context.contentResolver.openOutputStream(
+                                destinationUri,
+                                "wt"
+                            ) ?: throw IOException("Cannot open destination file")
+                        }
 
-                input.use { source ->
-                    output.use { target ->
-                        source.copyTo(target)
+                    destinationOutput.use { output ->
+                        input.copyTo(output)
                     }
                 }
 
@@ -353,6 +358,7 @@ class DocumentsTree {
             return false
         }
     }
+
 
 
     @Synchronized
