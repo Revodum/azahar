@@ -10,6 +10,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.system.Os
 import android.util.Pair
+import android.os.ParcelFileDescriptor
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedInputStream
@@ -91,19 +92,32 @@ object FileUtil {
         }
     }
 
-    /**
-     * Open content uri and return file descriptor to JNI.
+        /**
+     * Open content uri or physical file and return file descriptor to JNI.
      *
-     * @param path     Native content uri path
-     * @param openMode will be one of "r", "r", "rw", "wa", "rwa"
+     * @param path Native content uri path
+     * @param openMode will be one of "r", "w", "wt", "wa", "rw", "rwt"
      * @return file descriptor
      */
     @JvmStatic
     fun openContentUri(path: String, openMode: String): Int {
         try {
+            val uri = Uri.parse(path)
+
+            if (uri.scheme == "file") {
+                BuildUtil.assertNotGooglePlay()
+
+                val file = File(uri.path ?: return -1)
+                val parcelFileDescriptor = ParcelFileDescriptor.open(
+                    file,
+                    ParcelFileDescriptor.parseMode(openMode)
+                )
+                return parcelFileDescriptor.detachFd()
+            }
+
             context
                 .contentResolver
-                .openFileDescriptor(Uri.parse(path), openMode)
+                .openFileDescriptor(uri, openMode)
                 .use { parcelFileDescriptor ->
                     if (parcelFileDescriptor == null) {
                         Log.error("[FileUtil]: Cannot get the file descriptor from uri: $path")
