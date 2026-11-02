@@ -380,21 +380,34 @@ class DocumentsTree {
         }
     }
 
+    
     @Synchronized
     fun deleteDocument(filepath: String): Boolean {
         val node = resolvePath(filepath) ?: return false
+
         try {
-            if (!DocumentsContract.deleteDocument(context.contentResolver, node.uri!!)) {
-                return false
+            val deleted = if (node.file != null) {
+                val file = node.file!!
+                if (file.isDirectory) {
+                    file.deleteRecursively()
+                } else {
+                    file.delete()
+                }
+            } else {
+                val uri = node.uri ?: return false
+                DocumentsContract.deleteDocument(context.contentResolver, uri)
             }
-            if (node.parent != null) {
-                node.parent!!.removeChild(node)
-            }
+
+            if (!deleted) return false
+
+            node.parent?.removeChild(node)
             return true
         } catch (e: Exception) {
-            error("[DocumentsTree]: Cannot rename file, error: " + e.message)
+            error("[DocumentsTree]: Cannot delete file, error: " + e.message)
+            return false
         }
     }
+
 
     @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
