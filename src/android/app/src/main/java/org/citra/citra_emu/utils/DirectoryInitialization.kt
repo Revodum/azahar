@@ -34,46 +34,48 @@ object DirectoryInitialization {
 
     val context: Context get() = CitraApplication.appContext
 
-    @JvmStatic
-fun start(): DirectoryInitializationState? {
-    if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
-        return null
-    }
+        @JvmStatic
+    fun start(): DirectoryInitializationState? {
+        if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
+            return null
+        }
 
-    if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
-        directoryState = if (hasManageExternalStorageAccess()) {
-            if (setCitraUserDirectory()) {
-                val directory = File(userPath!!)
-                CitraApplication.documentsTree.setFilesystemRoot(directory)
-                NativeLibrary.setUserDirectory(userPath!!)
-                NativeLibrary.createLogFile()
-                NativeLibrary.logUserDirectory(userPath.toString())
-                NativeLibrary.createConfigFile()
-                GpuDriverHelper.initializeDriverParameters()
-                DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
-            } else {
-                DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+        try {
+            if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+                directoryState = if (hasManageExternalStorageAccess()) {
+                    if (setCitraUserDirectory()) {
+                        val directory = File(userPath!!)
+                        CitraApplication.documentsTree.setFilesystemRoot(directory)
+                        NativeLibrary.setUserDirectory(userPath!!)
+                        NativeLibrary.createLogFile()
+                        NativeLibrary.logUserDirectory(userPath.toString())
+                        NativeLibrary.createConfigFile()
+                        GpuDriverHelper.initializeDriverParameters()
+                        DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+                    } else {
+                        DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    }
+                } else if (hasWriteAccess(context)) {
+                    if (setCitraUserDirectory()) {
+                        CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
+                        NativeLibrary.createLogFile()
+                        NativeLibrary.logUserDirectory(userPath.toString())
+                        NativeLibrary.createConfigFile()
+                        GpuDriverHelper.initializeDriverParameters()
+                        DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+                    } else {
+                        DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    }
+                } else {
+                    DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
+                }
             }
-        } else if (hasWriteAccess(context)) {
-            if (setCitraUserDirectory()) {
-                CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
-                NativeLibrary.createLogFile()
-                NativeLibrary.logUserDirectory(userPath.toString())
-                NativeLibrary.createConfigFile()
-                GpuDriverHelper.initializeDriverParameters()
-                DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
-            } else {
-                DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
-            }
-        } else {
-            DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
+
+            return directoryState
+        } finally {
+            isCitraDirectoryInitializationRunning.set(false)
         }
     }
-
-    isCitraDirectoryInitializationRunning.set(false)
-    return directoryState
-}
-
     @JvmStatic
     fun areCitraDirectoriesReady(): Boolean =
         directoryState == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
