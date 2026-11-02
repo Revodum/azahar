@@ -361,24 +361,40 @@ class DocumentsTree {
 
 
 
+    
     @Synchronized
-    fun moveFile(filename: String, sourceDirPath: String, destDirPath: String): Boolean {
-        val sourceFileNode = resolvePath(sourceDirPath + "/" + filename) ?: return false
-        val sourceDirNode = resolvePath(sourceDirPath) ?: return false
-        val destDirNode = resolvePath(destDirPath) ?: return false
-        try {
-            val newUri = DocumentsContract.moveDocument(
-                context.contentResolver,
-                sourceFileNode.uri!!,
-                sourceDirNode.uri!!,
-                destDirNode.uri!!
-            )
-            updateDocumentLocation("$sourceDirPath/$filename", "$destDirPath/$filename")
-            return true
-        } catch (e: Exception) {
-            error("[DocumentsTree]: Cannot move file, error: " + e.message)
+    fun moveFile(
+        filename: String,
+        sourceDirPath: String,
+        destDirPath: String
+    ): Boolean {
+        val sourcePath = "$sourceDirPath/$filename"
+        val destinationPath = "$destDirPath/$filename"
+
+        val sourceNode = resolvePath(sourcePath) ?: return false
+        val destinationNode = resolvePath(destDirPath) ?: return false
+
+        if (sourceNode.isDirectory || !destinationNode.isDirectory) {
+            return false
         }
+
+        if (!copyFile(sourcePath, destDirPath, filename)) {
+            return false
+        }
+
+        if (deleteDocument(sourcePath)) {
+            return true
+        }
+
+        if (!deleteDocument(destinationPath)) {
+            error(
+                "[DocumentsTree]: Cannot roll back copied file after failed move"
+            )
+        }
+
+        return false
     }
+
 
     
     @Synchronized
