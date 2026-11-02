@@ -192,13 +192,13 @@ class DocumentsTree {
         }
     }
 
-    @Synchronized
+        @Synchronized
     fun getUri(filepath: String): Uri {
         val node = resolvePath(filepath) ?: return Uri.EMPTY
-        return node.uri ?: return Uri.EMPTY
+        return node.uri ?: node.file?.toUri() ?: Uri.EMPTY
     }
 
-    @Synchronized
+        @Synchronized
     fun folderUriHelper(path: String, createIfNotExists: Boolean = false): Uri? {
         root ?: return null
         val components = path.split(DELIMITER).filter { it.isNotEmpty() }
@@ -209,6 +209,43 @@ class DocumentsTree {
                 structTree(current)
             }
 
+            var child = current.findChild(component)
+
+            if (child == null && createIfNotExists) {
+                try {
+                    val parentFile = current.file
+
+                    if (parentFile != null) {
+                        val directory = File(parentFile, component)
+
+                        if (!directory.exists() && !directory.mkdirs()) {
+                            return null
+                        }
+
+                        child = DocumentsNode(directory)
+                    } else {
+                        val createdDir =
+                            FileUtil.createDir(current.uri.toString(), component)
+                                ?: return null
+
+                        child = DocumentsNode(createdDir, true)
+                    }
+
+                    child.parent = current
+                    current.addChild(child)
+                } catch (e: Exception) {
+                    error("[DocumentsTree]: Cannot create directory, error: " + e.message)
+                    return null
+                }
+            } else if (child == null) {
+                return null
+            }
+
+            current = child
+        }
+
+        return current?.uri ?: current?.file?.toUri()
+    }
             var child = current.findChild(component)
 
             // Create directory if it doesn't exist and creation is enabled
