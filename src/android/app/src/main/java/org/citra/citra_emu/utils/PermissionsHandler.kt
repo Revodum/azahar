@@ -5,6 +5,7 @@
 package org.citra.citra_emu.utils
 
 import android.content.Context
+import android.os.Environment
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
@@ -20,6 +21,11 @@ object PermissionsHandler {
     val preferences: SharedPreferences =
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
 
+       fun hasManageExternalStorageAccess(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            Environment.isExternalStorageManager()
+       }
+       
     fun hasWriteAccess(context: Context): Boolean {
         try {
             if (citraDirectory.toString().isEmpty()) {
