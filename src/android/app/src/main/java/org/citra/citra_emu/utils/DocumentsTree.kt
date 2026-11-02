@@ -198,14 +198,13 @@ class DocumentsTree {
         return node.uri ?: node.file?.toUri() ?: Uri.EMPTY
     }
 
-        @Synchronized
+            @Synchronized
     fun folderUriHelper(path: String, createIfNotExists: Boolean = false): Uri? {
-        root ?: return null
+        var current = root ?: return null
         val components = path.split(DELIMITER).filter { it.isNotEmpty() }
-        var current = root
 
         for (component in components) {
-            if (!current!!.loaded) {
+            if (!current.loaded) {
                 structTree(current)
             }
 
@@ -224,8 +223,9 @@ class DocumentsTree {
 
                         child = DocumentsNode(directory)
                     } else {
+                        val parentUri = current.uri ?: return null
                         val createdDir =
-                            FileUtil.createDir(current.uri.toString(), component)
+                            FileUtil.createDir(parentUri.toString(), component)
                                 ?: return null
 
                         child = DocumentsNode(createdDir, true)
@@ -244,7 +244,7 @@ class DocumentsTree {
             current = child
         }
 
-        return current?.uri ?: current?.file?.toUri()
+        return current.uri ?: current.file?.toUri()
     }
             
 
