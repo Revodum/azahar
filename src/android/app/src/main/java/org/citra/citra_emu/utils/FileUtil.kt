@@ -207,7 +207,7 @@ object FileUtil {
         return false
     }
     
-    /**
+        /**
      * Check whether given path is a directory
      *
      * @param path content uri path
@@ -215,11 +215,17 @@ object FileUtil {
      */
     @JvmStatic
     fun isDirectory(path: String): Boolean {
+        val uri = Uri.parse(path)
+
+        if (uri.scheme == "file") {
+            BuildUtil.assertNotGooglePlay()
+            return File(uri.path ?: return false).isDirectory
+        }
+
         val columns = arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE)
         var isDirectory = false
         var c: Cursor? = null
         try {
-            val uri = Uri.parse(path)
             c = context.contentResolver.query(uri, columns, null, null, null)
             c!!.moveToNext()
             val mimeType = c.getString(0)
@@ -231,7 +237,6 @@ object FileUtil {
         }
         return isDirectory
     }
-
     /**
      * Get file display name from given path
      *
