@@ -117,14 +117,14 @@ object FileUtil {
         }
     }
 
-    /**
-     * Reference:  https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
+        /**
+     * Reference: https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
      * This function will be faster than DocumentFile.listFiles
      *
      * @param uri     Directory uri.
      * @return CheapDocument lists.
      */
-        @JvmStatic
+    @JvmStatic
     fun listFiles(uri: Uri): Array<CheapDocument> {
         if (uri.scheme == "file") {
             BuildUtil.assertNotGooglePlay()
@@ -161,6 +161,7 @@ object FileUtil {
 
             val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
             c = context.contentResolver.query(childrenUri, columns, null, null, null)
+
             while (c!!.moveToNext()) {
                 val documentId = c.getString(0)
                 val documentName = c.getString(1)
@@ -174,7 +175,36 @@ object FileUtil {
         } finally {
             closeQuietly(c)
         }
+
         return results.toTypedArray()
+    }
+
+    /**
+     * Check whether given path exists.
+     *
+     * @param path Native content uri path
+     * @return bool
+     */
+    @JvmStatic
+    fun exists(path: String): Boolean {
+        var c: Cursor? = null
+        try {
+            val uri = Uri.parse(path)
+            val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            c = context.contentResolver.query(
+                uri,
+                columns,
+                null,
+                null,
+                null
+            )
+            return c!!.count > 0
+        } catch (e: Exception) {
+            Log.info("[FileUtil] Cannot find file from given path, error: " + e.message)
+        } finally {
+            closeQuietly(c)
+        }
+        return false
     }
     
     /**
