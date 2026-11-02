@@ -424,7 +424,77 @@ class DocumentsTree {
         }
     }
 
+ 
+    @Synchronized
+    fun renameFile(filepath: String, destinationFilename: String): Boolean {
+        val node = resolvePath(filepath) ?: return false
+        val parent = node.parent ?: return false
 
+        try {
+            val filename = URLDecoder.decode(
+                destinationFilename,
+                FileUtil.DECODE_METHOD
+            )
+
+            if (filename.isBlank() ||
+                filename == "." ||
+                filename == ".." ||
+                filename.contains("/") ||
+                filename.contains("\\")
+            ) {
+                return false
+            }
+
+            if (filename == node.name) return true
+
+            if (!parent.loaded) {
+                structTree(parent)
+            }
+
+            val existingNode = parent.findChild(filename)
+            if (existingNode != null && existingNode !== node) {
+                return false
+            }
+
+            val sourceFile = node.file
+
+            if (sourceFile != null) {
+                val destinationFile = File(sourceFile.parentFile, filename)
+
+                if (destinationFile.canonicalFile.parentFile !=
+                    sourceFile.parentFile?.canonicalFile
+                ) {
+                    return false
+                }
+
+                if (destinationFile.exists()) return false
+                if (!sourceFile.renameTo(destinationFile)) return false
+
+                parent.removeChild(node)
+                node.file = destinationFile
+                node.name = filename
+                parent.addChild(node)
+
+                return true
+            }
+
+            val sourceUri = node.uri ?: return false
+
+            val newUri = DocumentsContract.renameDocument(
+                context.contentResolver,
+                sourceUri,
+                filename
+            ) ?: return false
+
+            node.rename(filename, newUri)
+
+            return true
+        } catch (e: Exception) {
+            error("[DocumentsTree]: Cannot rename file, error: " + e.message)
+            return false
+        }
+    }
+    
     @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
         val sourceNode = resolvePath(sourcePath)
