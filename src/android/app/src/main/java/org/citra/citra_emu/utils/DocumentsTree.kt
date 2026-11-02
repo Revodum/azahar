@@ -323,33 +323,32 @@ class DocumentsTree {
         lateinit var name: String
 
         @get:Synchronized
-        @set:Synchronized
-        var uri: Uri? = null
-        
-        var file: File? = null
+@set:Synchronized
+var uri: Uri? = null
 
-        @get:Synchronized
-        @set:Synchronized
-        var loaded = false
-        
-        var isDirectory = false
+var file: File? = null
 
-        constructor()
-        
-        constructor(file: File) {
+@get:Synchronized
+@set:Synchronized
+var loaded = false
+
+var isDirectory = false
+
+constructor()
+
+constructor(file: File) {
     this.file = file
     name = file.name
     isDirectory = file.isDirectory
     loaded = !file.isDirectory
-        }
-        
-        constructor(document: CheapDocument) {
-            name = document.filename
-            uri = document.uri
-            isDirectory = document.isDirectory
-            loaded = !isDirectory
-        }
+}
 
+constructor(document: CheapDocument) {
+    name = document.filename
+    uri = document.uri
+    isDirectory = document.isDirectory
+    loaded = !isDirectory
+}
         constructor(document: DocumentFile, isCreateDir: Boolean) {
             name = document.name!!
             uri = document.uri
