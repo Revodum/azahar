@@ -547,13 +547,7 @@ class DocumentsTree {
                 DocumentsContract.getDocumentId(parentUri) + "/" + newName
             )
 
-            oldParent.removeChild(sourceNode)
-            sourceNode.name = newName
-            sourceNode.parent = newParent
-            sourceNode.uri = newUri
-            newParent.addChild(sourceNode)
-
-            return true
+            
         } catch (e: Exception) {
             error(
                 "[DocumentsTree]: Cannot update document location, error: " + e.message
