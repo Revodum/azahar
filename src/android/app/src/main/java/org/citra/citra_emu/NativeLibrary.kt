@@ -928,10 +928,19 @@ object NativeLibrary {
             FileUtil.renameFile(path, destinationFilename)
         }
 
-    @Keep
+     @Keep
     @JvmStatic
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean =
-        CitraApplication.documentsTree.updateDocumentLocation(sourcePath, destinationPath)
+        if (FileUtil.isNativePath(sourcePath) &&
+            FileUtil.isNativePath(destinationPath)
+        ) {
+            CitraApplication.documentsTree.updateDocumentLocation(
+                sourcePath,
+                destinationPath
+            )
+        } else {
+            true
+        }
 
     @Keep
     @JvmStatic
