@@ -290,7 +290,7 @@ object FileUtil {
         return files.toTypedArray<String?>()
     }
 
-    /**
+        /**
      * Get file size from given path.
      *
      * @param path content uri path
@@ -298,11 +298,17 @@ object FileUtil {
      */
     @JvmStatic
     fun getFileSize(path: String): Long {
+        val uri = Uri.parse(path)
+
+        if (uri.scheme == "file") {
+            BuildUtil.assertNotGooglePlay()
+            return File(uri.path ?: return 0L).length()
+        }
+
         val columns = arrayOf(DocumentsContract.Document.COLUMN_SIZE)
         var size: Long = 0
         var c: Cursor? = null
         try {
-            val uri = Uri.parse(path)
             c = context.contentResolver.query(
                 uri,
                 columns,
