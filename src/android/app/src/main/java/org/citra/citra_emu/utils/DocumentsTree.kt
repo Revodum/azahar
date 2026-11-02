@@ -325,13 +325,24 @@ class DocumentsTree {
         @get:Synchronized
         @set:Synchronized
         var uri: Uri? = null
+        
+        var file: File? = null
 
         @get:Synchronized
         @set:Synchronized
         var loaded = false
+        
         var isDirectory = false
 
         constructor()
+        
+        constructor(file: File) {
+    this.file = file
+    name = file.name
+    isDirectory = file.isDirectory
+    loaded = !file.isDirectory
+        }
+        
         constructor(document: CheapDocument) {
             name = document.filename
             uri = document.uri
