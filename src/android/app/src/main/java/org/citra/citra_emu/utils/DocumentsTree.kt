@@ -498,7 +498,6 @@ class DocumentsTree {
     
     
     @Synchronized
-    @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
         val sourceNode = resolvePath(sourcePath) ?: return false
         val newName = Paths.get(destinationPath).fileName?.toString()
