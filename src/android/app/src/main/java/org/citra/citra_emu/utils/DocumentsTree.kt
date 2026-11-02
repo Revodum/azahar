@@ -30,36 +30,29 @@ class DocumentsTree {
     private var filesystemRoot: File? = null
     private val context get() = CitraApplication.appContext
 
-        fun setRoot(rootUri: Uri?) {
+            fun setRoot(rootUri: Uri?) {
         root = null
         root = DocumentsNode()
         root!!.uri = rootUri
         root!!.isDirectory = true
     }
 
-    fun setRoot(rootUri: Uri?) {
-    root = null
-    root = DocumentsNode()
-    root!!.uri = rootUri
-    root!!.isDirectory = true
-}
+    fun setFilesystemRoot(directory: File) {
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
 
-fun setFilesystemRoot(directory: File) {
-    if (!directory.exists()) {
-        directory.mkdirs()
+        require(directory.isDirectory) {
+            "Azahar data directory is not a directory"
+        }
+
+        filesystemRoot = directory.canonicalFile
+
+        root = DocumentsNode(filesystemRoot!!).apply {
+            isDirectory = true
+            loaded = false
+        }
     }
-
-    require(directory.isDirectory) {
-        "Azahar data directory is not a directory"
-    }
-
-    filesystemRoot = directory.canonicalFile
-
-    root = DocumentsNode(filesystemRoot!!).apply {
-        isDirectory = true
-        loaded = false
-    }
-}
 
     @Synchronized
     fun createFile(filepath: String, name: String): Boolean {
