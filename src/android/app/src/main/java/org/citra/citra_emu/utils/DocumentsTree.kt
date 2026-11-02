@@ -246,29 +246,7 @@ class DocumentsTree {
 
         return current?.uri ?: current?.file?.toUri()
     }
-            var child = current.findChild(component)
-
-            // Create directory if it doesn't exist and creation is enabled
-            if (child == null && createIfNotExists) {
-                try {
-                    val createdDir =
-                        FileUtil.createDir(current.uri.toString(), component) ?: return null
-                    child = DocumentsNode(createdDir, true).apply {
-                        parent = current
-                    }
-                    current.addChild(child)
-                } catch (e: Exception) {
-                    error("[DocumentsTree]: Cannot create directory, error: " + e.message)
-                    return null
-                }
-            } else if (child == null) {
-                return null
-            }
-
-            current = child
-        }
-        return current?.uri
-    }
+            
 
     @Synchronized
     fun isDirectory(filepath: String): Boolean {
