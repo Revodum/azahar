@@ -37,17 +37,29 @@ class DocumentsTree {
         root!!.isDirectory = true
     }
 
-    fun setFilesystemRoot(directory: File) {
-        if (!directory.exists()) {
-            directory.mkdirs()
-        }
+    fun setRoot(rootUri: Uri?) {
+    root = null
+    root = DocumentsNode()
+    root!!.uri = rootUri
+    root!!.isDirectory = true
+}
 
-        require(directory.isDirectory) {
-            "Azahar data directory is not a directory"
-        }
-
-        filesystemRoot = directory.canonicalFile
+fun setFilesystemRoot(directory: File) {
+    if (!directory.exists()) {
+        directory.mkdirs()
     }
+
+    require(directory.isDirectory) {
+        "Azahar data directory is not a directory"
+    }
+
+    filesystemRoot = directory.canonicalFile
+
+    root = DocumentsNode(filesystemRoot!!).apply {
+        isDirectory = true
+        loaded = false
+    }
+}
 
     @Synchronized
     fun createFile(filepath: String, name: String): Boolean {
@@ -305,15 +317,33 @@ class DocumentsTree {
      * @param parent parent node of this level
      */
     @Synchronized
-    private fun structTree(parent: DocumentsNode) {
-        val documents = FileUtil.listFiles(parent.uri!!)
-        for (document in documents) {
-            val node = DocumentsNode(document)
-            node.parent = parent
-            parent.addChild(node)
+private fun structTree(parent: DocumentsNode) {
+    val parentFile = parent.file
+
+    if (parentFile != null) {
+        val files = parentFile.listFiles()
+
+        if (files != null) {
+            for (file in files) {
+                val node = DocumentsNode(file)
+                node.parent = parent
+                parent.addChild(node)
+            }
         }
+
         parent.loaded = true
+        return
     }
+
+    val documents = FileUtil.listFiles(parent.uri!!)
+    for (document in documents) {
+        val node = DocumentsNode(document)
+        node.parent = parent
+        parent.addChild(node)
+    }
+
+    parent.loaded = true
+}
 
     private class DocumentsNode {
         @get:Synchronized
