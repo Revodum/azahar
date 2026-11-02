@@ -179,7 +179,7 @@ object FileUtil {
         return results.toTypedArray()
     }
 
-    /**
+        /**
      * Check whether given path exists.
      *
      * @param path Native content uri path
@@ -187,9 +187,15 @@ object FileUtil {
      */
     @JvmStatic
     fun exists(path: String): Boolean {
+        val uri = Uri.parse(path)
+
+        if (uri.scheme == "file") {
+            BuildUtil.assertNotGooglePlay()
+            return File(uri.path ?: return false).exists()
+        }
+
         var c: Cursor? = null
         try {
-            val uri = Uri.parse(path)
             val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
             c = context.contentResolver.query(
                 uri,
