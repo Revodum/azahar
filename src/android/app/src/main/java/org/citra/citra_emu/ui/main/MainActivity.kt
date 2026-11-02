@@ -230,6 +230,66 @@ class MainActivity :
         themeId = resId
     }
 
+    private fun checkUserPermissions() {
+    val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
+
+    if (firstTimeSetup) {
+        return
+    }
+
+    if (!BuildUtil.isGooglePlayBuild) {
+        fun requestMissingFilesystemPermission() =
+            GrantMissingFilesystemPermissionFragment.newInstance()
+                .show(supportFragmentManager, GrantMissingFilesystemPermissionFragment.TAG)
+
+        if (supportFragmentManager.findFragmentByTag(
+                GrantMissingFilesystemPermissionFragment.TAG
+            ) == null
+        ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (!Environment.isExternalStorageManager()) {
+                    requestMissingFilesystemPermission()
+                }
+            } else {
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    requestMissingFilesystemPermission()
+                }
+            }
+        }
+    }
+
+    if (homeViewModel.isPickingUserDir.value) {
+        return
+    }
+
+    if (!PermissionsHandler.hasWriteAccess(this)) {
+        SelectUserDirectoryDialogFragment.newInstance(this)
+            .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
+        return
+    } else if (CitraDirectoryUtils.needToUpdateManually()) {
+        UpdateUserDirectoryDialogFragment.newInstance(this)
+            .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
+        return
+    }
+
+    if (!BuildUtil.isGooglePlayBuild &&
+        !PermissionsHandler.hasManageExternalStorageAccess()
+    ) {
+        if (supportFragmentManager.findFragmentByTag(SelectUserDirectoryDialogFragment.TAG) ==
+            null
+        ) {
+            if (NativeLibrary.getUserDirectory() == "") {
+                SelectUserDirectoryDialogFragment.newInstance(this)
+                    .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
+            }
+        }
+    }
+    
     
 
     fun finishSetup(navController: NavController) {
