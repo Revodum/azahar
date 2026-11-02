@@ -55,8 +55,44 @@ class DocumentsTree {
         }
     }
 
-        @Synchronized
+            @Synchronized
     fun createFile(filepath: String, name: String): Boolean {
+        val node = resolvePath(filepath) ?: return false
+        if (!node.isDirectory) return false
+        if (!node.loaded) structTree(node)
+
+        try {
+            val filename = URLDecoder.decode(name, FileUtil.DECODE_METHOD)
+            if (node.findChild(filename) != null) return true
+
+            val parentFile = node.file
+
+            if (parentFile != null) {
+                val file = File(parentFile, filename)
+
+                if (file.exists() && !file.isFile) return false
+                if (!file.exists() && !file.createNewFile()) return false
+
+                val document = DocumentsNode(file)
+                document.parent = node
+                node.addChild(document)
+                return true
+            }
+
+            val createdFile =
+                FileUtil.createFile(node.uri.toString(), name) ?: return false
+
+            val document = DocumentsNode(createdFile, false)
+            document.parent = node
+            node.addChild(document)
+            return true
+        } catch (e: Exception) {
+            error("[DocumentsTree]: Cannot create file, error: " + e.message)
+        }
+    }
+
+    @Synchronized
+    fun createDir(filepath: String, name: String): Boolean {
         val node = resolvePath(filepath) ?: return false
         if (!node.isDirectory) return false
         if (!node.loaded) structTree(node)
@@ -70,9 +106,8 @@ class DocumentsTree {
             if (parentFile != null) {
                 val directory = File(parentFile, filename)
 
-                if (!directory.exists() && !directory.mkdirs()) {
-                    return false
-                }
+                if (directory.exists() && !directory.isDirectory) return false
+                if (!directory.exists() && !directory.mkdirs()) return false
 
                 val document = DocumentsNode(directory)
                 document.parent = node
@@ -88,7 +123,7 @@ class DocumentsTree {
             node.addChild(document)
             return true
         } catch (e: Exception) {
-            error("[DocumentsTree]: Cannot create file, error: " + e.message)
+            error("[DocumentsTree]: Cannot create directory, error: " + e.message)
         }
     }
 
