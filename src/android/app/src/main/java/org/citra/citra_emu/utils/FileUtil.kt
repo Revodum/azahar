@@ -124,8 +124,27 @@ object FileUtil {
      * @param uri     Directory uri.
      * @return CheapDocument lists.
      */
-    @JvmStatic
+        @JvmStatic
     fun listFiles(uri: Uri): Array<CheapDocument> {
+        if (uri.scheme == "file") {
+            BuildUtil.assertNotGooglePlay()
+
+            val directory = File(uri.path ?: return emptyArray())
+            val children = directory.listFiles() ?: return emptyArray()
+
+            return children.map { child ->
+                CheapDocument(
+                    child.name,
+                    if (child.isDirectory) {
+                        DocumentsContract.Document.MIME_TYPE_DIR
+                    } else {
+                        APPLICATION_OCTET_STREAM
+                    },
+                    child.toUri()
+                )
+            }.toTypedArray()
+        }
+
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
@@ -155,37 +174,9 @@ object FileUtil {
         } finally {
             closeQuietly(c)
         }
-        return results.toTypedArray<CheapDocument>()
+        return results.toTypedArray()
     }
-
-    /**
-     * Check whether given path exists.
-     *
-     * @param path Native content uri path
-     * @return bool
-     */
-    @JvmStatic
-    fun exists(path: String): Boolean {
-        var c: Cursor? = null
-        try {
-            val uri = Uri.parse(path)
-            val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            c = context.contentResolver.query(
-                uri,
-                columns,
-                null,
-                null,
-                null
-            )
-            return c!!.count > 0
-        } catch (e: Exception) {
-            Log.info("[FileUtil] Cannot find file from given path, error: " + e.message)
-        } finally {
-            closeQuietly(c)
-        }
-        return false
-    }
-
+    
     /**
      * Check whether given path is a directory
      *
