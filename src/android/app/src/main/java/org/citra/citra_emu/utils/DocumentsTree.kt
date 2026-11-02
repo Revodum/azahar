@@ -496,6 +496,7 @@ class DocumentsTree {
     }
     
     
+    
     @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
         val sourceNode = resolvePath(sourcePath) ?: return false
@@ -530,7 +531,7 @@ class DocumentsTree {
                     return false
                 }
 
-                if (destinationFile.exists()) return false
+                if (!destinationFile.exists()) return false
 
                 oldParent.removeChild(sourceNode)
                 sourceNode.file = destinationFile
@@ -547,7 +548,13 @@ class DocumentsTree {
                 DocumentsContract.getDocumentId(parentUri) + "/" + newName
             )
 
-            
+            oldParent.removeChild(sourceNode)
+            sourceNode.name = newName
+            sourceNode.parent = newParent
+            sourceNode.uri = newUri
+            newParent.addChild(sourceNode)
+
+            return true
         } catch (e: Exception) {
             error(
                 "[DocumentsTree]: Cannot update document location, error: " + e.message
@@ -556,16 +563,6 @@ class DocumentsTree {
         }
     }
 
-        sourceNode.parent!!.removeChild(sourceNode)
-
-        sourceNode.name = newName
-        sourceNode.parent = newParent
-        sourceNode.uri = newUri
-
-        newParent.addChild(sourceNode)
-
-        return true
-    }
 
     @Synchronized
     private fun resolvePath(filepath: String): DocumentsNode? {
