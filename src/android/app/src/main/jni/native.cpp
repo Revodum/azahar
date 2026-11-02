@@ -733,7 +733,10 @@ jstring Java_org_citra_citra_1emu_NativeLibrary_getRecommendedExtension(
 void Java_org_citra_citra_1emu_NativeLibrary_setUserDirectory(JNIEnv* env,
                                                               [[maybe_unused]] jobject obj,
                                                               jstring j_directory) {
-    FileUtil::SetCurrentDir(GetJString(env, j_directory));
+    const std::string directory = GetJString(env, j_directory);
+
+    FileUtil::SetUserPath(directory);
+    FileUtil::SetCurrentDir(directory);
 }
 
 jobjectArray Java_org_citra_citra_1emu_NativeLibrary_getInstalledGamePathsImpl(
