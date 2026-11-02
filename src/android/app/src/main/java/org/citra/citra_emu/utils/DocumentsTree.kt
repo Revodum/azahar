@@ -495,18 +495,72 @@ class DocumentsTree {
         }
     }
     
+    
     @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
-        val sourceNode = resolvePath(sourcePath)
-        val newName = Paths.get(destinationPath).fileName.toString()
-        val parentPath = Paths.get(destinationPath).parent.toString()
-        val newParent = resolvePath(parentPath)
-        val newUri = (getUri(parentPath).toString() + "%2F$newName").toUri()
-        // ^- Is there a better way?
+        val sourceNode = resolvePath(sourcePath) ?: return false
+        val newName = Paths.get(destinationPath).fileName?.toString()
+            ?: return false
+        val parentPath = Paths.get(destinationPath).parent?.toString()
+            ?: return false
+        val newParent = resolvePath(parentPath) ?: return false
 
-        if (sourceNode == null || newParent == null) {
+        if (!newParent.isDirectory) return false
+
+        try {
+            if (!newParent.loaded) {
+                structTree(newParent)
+            }
+
+            val existingNode = newParent.findChild(newName)
+            if (existingNode != null && existingNode !== sourceNode) {
+                return false
+            }
+
+            val oldParent = sourceNode.parent ?: return false
+            val sourceFile = sourceNode.file
+
+            if (sourceFile != null) {
+                val destinationParentFile = newParent.file ?: return false
+                val destinationFile = File(destinationParentFile, newName)
+
+                if (destinationFile.canonicalFile.parentFile !=
+                    destinationParentFile.canonicalFile
+                ) {
+                    return false
+                }
+
+                if (destinationFile.exists()) return false
+
+                oldParent.removeChild(sourceNode)
+                sourceNode.file = destinationFile
+                sourceNode.name = newName
+                sourceNode.parent = newParent
+                newParent.addChild(sourceNode)
+
+                return true
+            }
+
+            val parentUri = newParent.uri ?: return false
+            val newUri = DocumentsContract.buildDocumentUriUsingTree(
+                parentUri,
+                DocumentsContract.getDocumentId(parentUri) + "/" + newName
+            )
+
+            oldParent.removeChild(sourceNode)
+            sourceNode.name = newName
+            sourceNode.parent = newParent
+            sourceNode.uri = newUri
+            newParent.addChild(sourceNode)
+
+            return true
+        } catch (e: Exception) {
+            error(
+                "[DocumentsTree]: Cannot update document location, error: " + e.message
+            )
             return false
         }
+    }
 
         sourceNode.parent!!.removeChild(sourceNode)
 
