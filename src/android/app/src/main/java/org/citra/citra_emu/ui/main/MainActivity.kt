@@ -230,40 +230,7 @@ class MainActivity :
         themeId = resId
     }
 
-    private fun checkUserPermissions() {
-        val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-            .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
-
-        if (firstTimeSetup) {
-            return
-        }
-
-        
-        if (homeViewModel.isPickingUserDir.value) {
-            return
-        }
-
-        if (!PermissionsHandler.hasWriteAccess(this)) {
-            SelectUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
-            return
-        } else if (CitraDirectoryUtils.needToUpdateManually()) {
-            UpdateUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
-            return
-        }
-
-        if (!BuildUtil.isGooglePlayBuild) {
-            if (supportFragmentManager.findFragmentByTag(SelectUserDirectoryDialogFragment.TAG) ==
-                null
-            ) {
-                if (NativeLibrary.getUserDirectory() == "") {
-                    SelectUserDirectoryDialogFragment.newInstance(this)
-                        .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
-                }
-            }
-        }
-    }
+    
 
     fun finishSetup(navController: NavController) {
         navController.navigate(R.id.action_firstTimeSetupFragment_to_gamesFragment)
