@@ -10,6 +10,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.IOException
 import java.io.File
+import android.os.ParcelFileDescriptor
 import java.net.URLDecoder
 import java.nio.file.Paths
 import java.util.StringTokenizer
@@ -54,15 +55,34 @@ class DocumentsTree {
         }
     }
 
-    @Synchronized
+        @Synchronized
     fun createFile(filepath: String, name: String): Boolean {
         val node = resolvePath(filepath) ?: return false
         if (!node.isDirectory) return false
         if (!node.loaded) structTree(node)
+
         try {
             val filename = URLDecoder.decode(name, FileUtil.DECODE_METHOD)
             if (node.findChild(filename) != null) return true
-            val createdDirectory = FileUtil.createDir(node.uri.toString(), name) ?: return false
+
+            val parentFile = node.file
+
+            if (parentFile != null) {
+                val directory = File(parentFile, filename)
+
+                if (!directory.exists() && !directory.mkdirs()) {
+                    return false
+                }
+
+                val document = DocumentsNode(directory)
+                document.parent = node
+                node.addChild(document)
+                return true
+            }
+
+            val createdDirectory =
+                FileUtil.createDir(node.uri.toString(), name) ?: return false
+
             val document = DocumentsNode(createdDirectory, true)
             document.parent = node
             node.addChild(document)
@@ -72,12 +92,41 @@ class DocumentsTree {
         }
     }
 
-    @Synchronized
+        @Synchronized
     fun openContentUri(filepath: String, openMode: String): Int {
         val node = resolvePath(filepath) ?: return -1
+        val file = node.file
+
+        if (file != null) {
+            return try {
+                val mode = when (openMode) {
+                    "r" -> ParcelFileDescriptor.MODE_READ_ONLY
+                    "rw" -> ParcelFileDescriptor.MODE_READ_WRITE or
+                        ParcelFileDescriptor.MODE_CREATE
+                    "wa" -> ParcelFileDescriptor.MODE_WRITE_ONLY or
+                        ParcelFileDescriptor.MODE_CREATE or
+                        ParcelFileDescriptor.MODE_APPEND
+                    "rwa" -> ParcelFileDescriptor.MODE_READ_WRITE or
+                        ParcelFileDescriptor.MODE_CREATE or
+                        ParcelFileDescriptor.MODE_APPEND
+                    else -> throw IllegalArgumentException(
+                        "Unsupported file open mode: $openMode"
+                    )
+                }
+
+                ParcelFileDescriptor.open(file, mode).detachFd()
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "DocumentsTree",
+                    "Cannot open physical file: ${e.message}"
+                )
+                -1
+            }
+        }
+
         return FileUtil.openContentUri(node.uri.toString(), openMode)
     }
-
+    
     @Synchronized
     fun getFilename(filepath: String): String {
         val components = filepath.split(DELIMITER).filter { it.isNotEmpty() }
@@ -96,13 +145,15 @@ class DocumentsTree {
         return node.getChildNames()
     }
 
-    @Synchronized
+        @Synchronized
     fun getFileSize(filepath: String): Long {
         val node = resolvePath(filepath)
+
         return if (node == null || node.isDirectory) {
             0
         } else {
-            FileUtil.getFileSize(node.uri.toString())
+            node.file?.length()
+                ?: FileUtil.getFileSize(node.uri.toString())
         }
     }
 
