@@ -289,7 +289,7 @@ class MainActivity :
             }
         }
     }
-    
+    }
     
 
     fun finishSetup(navController: NavController) {
