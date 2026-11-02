@@ -498,6 +498,7 @@ class DocumentsTree {
     
     
     @Synchronized
+    @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
         val sourceNode = resolvePath(sourcePath) ?: return false
         val newName = Paths.get(destinationPath).fileName?.toString()
@@ -543,15 +544,14 @@ class DocumentsTree {
             }
 
             val parentUri = newParent.uri ?: return false
-            val newUri = DocumentsContract.buildDocumentUriUsingTree(
-                parentUri,
-                DocumentsContract.getDocumentId(parentUri) + "/" + newName
-            )
+            val destinationDocument = FileUtil.listFiles(parentUri)
+                .firstOrNull { it.filename == newName }
+                ?: return false
 
             oldParent.removeChild(sourceNode)
             sourceNode.name = newName
             sourceNode.parent = newParent
-            sourceNode.uri = newUri
+            sourceNode.uri = destinationDocument.uri
             newParent.addChild(sourceNode)
 
             return true
