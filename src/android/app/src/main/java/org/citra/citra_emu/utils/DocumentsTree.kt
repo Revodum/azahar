@@ -9,6 +9,7 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.IOException
+import java.io.File
 import java.net.URLDecoder
 import java.nio.file.Paths
 import java.util.StringTokenizer
@@ -26,35 +27,30 @@ import org.citra.citra_emu.utils.BuildUtil
  */
 class DocumentsTree {
     private var root: DocumentsNode? = null
+    private var filesystemRoot: File? = null
     private val context get() = CitraApplication.appContext
 
-    fun setRoot(rootUri: Uri?) {
+        fun setRoot(rootUri: Uri?) {
         root = null
         root = DocumentsNode()
         root!!.uri = rootUri
         root!!.isDirectory = true
     }
 
-    @Synchronized
-    fun createFile(filepath: String, name: String): Boolean {
-        val node = resolvePath(filepath) ?: return false
-        if (!node.isDirectory) return false
-        if (!node.loaded) structTree(node)
-        try {
-            val filename = URLDecoder.decode(name, FileUtil.DECODE_METHOD)
-            if (node.findChild(filename) != null) return true
-            val createdFile = FileUtil.createFile(node.uri.toString(), name) ?: return false
-            val document = DocumentsNode(createdFile, false)
-            document.parent = node
-            node.addChild(document)
-            return true
-        } catch (e: Exception) {
-            error("[DocumentsTree]: Cannot create file, error: " + e.message)
+    fun setFilesystemRoot(directory: File) {
+        if (!directory.exists()) {
+            directory.mkdirs()
         }
+
+        require(directory.isDirectory) {
+            "Azahar data directory is not a directory"
+        }
+
+        filesystemRoot = directory.canonicalFile
     }
 
     @Synchronized
-    fun createDir(filepath: String, name: String): Boolean {
+    fun createFile(filepath: String, name: String): Boolean {
         val node = resolvePath(filepath) ?: return false
         if (!node.isDirectory) return false
         if (!node.loaded) structTree(node)
