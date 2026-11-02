@@ -5,6 +5,8 @@
 package org.citra.citra_emu.utils
 
 import android.content.Context
+import android.os.Environment
+import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
@@ -33,39 +35,44 @@ object DirectoryInitialization {
     val context: Context get() = CitraApplication.appContext
 
     @JvmStatic
-    fun start(): DirectoryInitializationState? {
-        if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
-            return null
-        }
+fun start(): DirectoryInitializationState? {
+    if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
+        return null
+    }
 
-        if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
-            directoryState = if (hasWriteAccess(context)) {
-                if (setCitraUserDirectory()) {
-                    CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
-                    NativeLibrary.createLogFile()
-                    NativeLibrary.logUserDirectory(userPath.toString())
-                    NativeLibrary.createConfigFile()
-                    GpuDriverHelper.initializeDriverParameters()
-                    DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
-                } else {
-                    DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
-                }
+    if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+        directoryState = if (hasManageExternalStorageAccess()) {
+            if (setCitraUserDirectory()) {
+                val directory = File(userPath!!)
+                CitraApplication.documentsTree.setFilesystemRoot(directory)
+                NativeLibrary.setUserDirectory(userPath!!)
+                NativeLibrary.createLogFile()
+                NativeLibrary.logUserDirectory(userPath.toString())
+                NativeLibrary.createConfigFile()
+                GpuDriverHelper.initializeDriverParameters()
+                DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
             } else {
-                DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
+                DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
             }
+        } else if (hasWriteAccess(context)) {
+            if (setCitraUserDirectory()) {
+                CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
+                NativeLibrary.createLogFile()
+                NativeLibrary.logUserDirectory(userPath.toString())
+                NativeLibrary.createConfigFile()
+                GpuDriverHelper.initializeDriverParameters()
+                DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+            } else {
+                DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+            }
+        } else {
+            DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
         }
-        isCitraDirectoryInitializationRunning.set(false)
-        return directoryState
     }
 
-    private fun deleteDirectoryRecursively(file: File) {
-        if (file.isDirectory) {
-            for (child in file.listFiles()!!) {
-                deleteDirectoryRecursively(child)
-            }
-        }
-        file.delete()
-    }
+    isCitraDirectoryInitializationRunning.set(false)
+    return directoryState
+}
 
     @JvmStatic
     fun areCitraDirectoriesReady(): Boolean =
@@ -88,13 +95,38 @@ object DirectoryInitialization {
         }
 
     fun setCitraUserDirectory(): Boolean {
-        val dataPath = PermissionsHandler.citraDirectory
-        if (dataPath.toString().isNotEmpty()) {
-            userPath = dataPath.toString()
-            android.util.Log.d("[Azahar Frontend]", "[DirectoryInitialization] User Dir: $userPath")
-            return true
+    if (hasManageExternalStorageAccess()) {
+        val downloadsDirectory =
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val directory = File(downloadsDirectory, "Azahar")
+
+        if (!directory.exists() && !directory.mkdirs()) {
+            return false
         }
-        return false
+
+        if (!directory.isDirectory) {
+            return false
+        }
+
+        userPath = directory.canonicalPath + File.separator
+        android.util.Log.d(
+            "[Azahar Frontend]",
+            "[DirectoryInitialization] User Dir: $userPath"
+        )
+        return true
+    }
+
+    val dataPath = PermissionsHandler.citraDirectory
+    if (dataPath.toString().isNotEmpty()) {
+        userPath = dataPath.toString()
+        android.util.Log.d(
+            "[Azahar Frontend]",
+            "[DirectoryInitialization] User Dir: $userPath"
+        )
+        return true
+    }
+
+    return false
     }
 
     private fun copyAsset(asset: String, output: File, overwrite: Boolean, context: Context) {
