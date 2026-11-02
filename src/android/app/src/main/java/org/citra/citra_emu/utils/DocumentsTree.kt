@@ -257,7 +257,8 @@ class DocumentsTree {
     @Synchronized
     fun exists(filepath: String): Boolean = resolvePath(filepath) != null
 
-        @Synchronized
+
+    @Synchronized
     fun copyFile(
         sourcePath: String,
         destinationParentPath: String,
@@ -268,54 +269,66 @@ class DocumentsTree {
 
         if (sourceNode.isDirectory || !destinationNode.isDirectory) return false
 
-        val filename = URLDecoder.decode(destinationFilename, "UTF-8")
+        val filename = URLDecoder.decode(destinationFilename, FileUtil.DECODE_METHOD)
 
-        if (destinationNode.findChild(filename) != null) return false
+        if (filename.isBlank() ||
+            filename == "." ||
+            filename == ".." ||
+            filename.contains("/") ||
+            filename.contains("\\")
+        ) {
+            return false
+        }
 
         try {
-            val sourceFile = sourceNode.file
-
-            if (sourceFile != null) {
-                val parentFile = destinationNode.file ?: return false
-                val destinationFile = File(parentFile, filename)
-
-                if (destinationFile.exists()) return false
-
-                try {
-                    sourceFile.inputStream().use { input ->
-                        destinationFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    val document = DocumentsNode(destinationFile)
-                    document.parent = destinationNode
-                    destinationNode.addChild(document)
-
-                    return true
-                } catch (e: Exception) {
-                    destinationFile.delete()
-                    throw e
-                }
+            if (!destinationNode.loaded) {
+                structTree(destinationNode)
             }
 
-            val sourceUri = sourceNode.uri ?: return false
-            val destinationUri = destinationNode.uri ?: return false
+            if (destinationNode.findChild(filename) != null) return false
 
-            val destinationParent =
-                DocumentFile.fromTreeUri(context, destinationUri) ?: return false
+            var destinationFile: File? = null
+            var destinationDocument: DocumentFile? = null
 
-            val destination = destinationParent.createFile(
-                "application/octet-stream",
-                filename
-            ) ?: return false
+            if (destinationNode.file != null) {
+                val parentFile = destinationNode.file!!
+                val target = File(parentFile, filename)
+
+                if (target.canonicalFile.parentFile != parentFile.canonicalFile) {
+                    return false
+                }
+
+                if (!target.createNewFile()) return false
+                destinationFile = target
+            } else {
+                val parentUri = destinationNode.uri ?: return false
+                val parent = DocumentFile.fromTreeUri(context, parentUri)
+                    ?: return false
+
+                if (parent.findFile(filename)?.exists() == true) return false
+
+                destinationDocument = parent.createFile(
+                    FileUtil.APPLICATION_OCTET_STREAM,
+                    filename
+                ) ?: return false
+            }
 
             try {
-                val input = context.contentResolver.openInputStream(sourceUri)
-                    ?: throw IOException("Cannot open source file")
+                val input = sourceNode.file?.inputStream()
+                    ?: run {
+                        val sourceUri = sourceNode.uri ?: return false
+                        context.contentResolver.openInputStream(sourceUri)
+                            ?: throw IOException("Cannot open source file")
+                    }
 
-                val output = context.contentResolver.openOutputStream(destination.uri, "wt")
-                    ?: throw IOException("Cannot open destination file")
+                val output = destinationFile?.outputStream()
+                    ?: run {
+                        val destinationUri = destinationDocument?.uri
+                            ?: throw IOException("Destination URI unavailable")
+
+                        context.contentResolver.openOutputStream(destinationUri, "wt")
+                            ?: throw IOException("Cannot open destination file")
+                    }
 
                 input.use { source ->
                     output.use { target ->
@@ -323,19 +336,24 @@ class DocumentsTree {
                     }
                 }
 
-                val document = DocumentsNode(destination, false)
+                val document = destinationFile?.let { DocumentsNode(it) }
+                    ?: DocumentsNode(destinationDocument!!, false)
+
                 document.parent = destinationNode
                 destinationNode.addChild(document)
 
                 return true
             } catch (e: Exception) {
-                destination.delete()
+                destinationFile?.delete()
+                destinationDocument?.delete()
                 throw e
             }
         } catch (e: Exception) {
             error("[DocumentsTree]: Cannot copy file, error: " + e.message)
+            return false
         }
     }
+
 
     @Synchronized
     fun moveFile(filename: String, sourceDirPath: String, destDirPath: String): Boolean {
