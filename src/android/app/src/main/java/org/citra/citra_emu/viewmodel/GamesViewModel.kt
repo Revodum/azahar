@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
 import java.util.Locale
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,9 +55,13 @@ class GamesViewModel : ViewModel() {
                     return@forEach
                 }
 
-                val gameExists =
-                    DocumentFile.fromSingleUri(CitraApplication.appContext, Uri.parse(game.path))
-                        ?.exists()
+                val gameUri = Uri.parse(game.path)
+val gameExists = if (gameUri.scheme == null || gameUri.scheme == "file") {
+    File(gameUri.path ?: game.path).exists()
+} else {
+    DocumentFile.fromSingleUri(CitraApplication.appContext, gameUri)?.exists()
+}
+
                 if (gameExists == true) {
                     deserializedGames.add(game)
                 } else if (game.isInstalled) {
