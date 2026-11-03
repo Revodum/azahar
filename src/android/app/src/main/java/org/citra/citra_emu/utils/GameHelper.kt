@@ -15,7 +15,6 @@ import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.NativeLibrary
 import org.citra.citra_emu.R
-import org.citra.citra_emu.model.CheapDocument
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.GameInfo
 
@@ -27,51 +26,38 @@ object GameHelper {
     var cachedGameList = mutableListOf<Game>()
     private lateinit var preferences: SharedPreferences
 
-    fun getGames(): List<Game> {
-    val games = mutableListOf<Game>()
-    val context = CitraApplication.appContext
-    preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        fun getGames(): List<Game> {
+        val games = mutableListOf<Game>()
+        val context = CitraApplication.appContext
+        preferences = PreferenceManager.getDefaultSharedPreferences(context)
 
-    val directories = mutableListOf<Uri>()
-    val gamesDir = preferences.getString(KEY_GAME_PATH, "")
+        val directories = mutableListOf<Uri>()
+        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
 
-    if (!gamesDir.isNullOrEmpty()) {
-        directories.add(Uri.parse(gamesDir))
-    }
-
-    if (!BuildUtil.isGooglePlayBuild &&
-        PermissionsHandler.hasManageExternalStorageAccess()
-    ) {
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(
-            Environment.DIRECTORY_DOWNLOADS
-        )
-
-        if (downloadsDir.isDirectory) {
-            directories.add(Uri.fromFile(downloadsDir))
+        if (!gamesDir.isNullOrEmpty()) {
+            directories.add(Uri.parse(gamesDir))
         }
-    }
 
-    addGamesRecursive(games, directories)
+        if (!BuildUtil.isGooglePlayBuild &&
+            PermissionsHandler.hasManageExternalStorageAccess()
+        ) {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
 
-    NativeLibrary.getInstalledGamePaths().forEach {
-        games.add(
-            getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
-        )
-    }
+            if (downloadsDir.isDirectory) {
+                directories.add(Uri.fromFile(downloadsDir))
+            }
+        }
 
-    val serializedGames = mutableSetOf<String>()
-    games.forEach {
-        serializedGames.add(Json.encodeToString(it))
-    }
-    preferences.edit()
-        .remove(KEY_GAMES)
-        .putStringSet(KEY_GAMES, serializedGames)
-        .apply()
+        addGamesRecursive(games, directories)
 
-    cachedGameList = games.toMutableList()
-    return games.toList()
-    }
-        // Cache list of games found on disk
+        NativeLibrary.getInstalledGamePaths().forEach {
+            games.add(
+                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
+            )
+        }
+
         val serializedGames = mutableSetOf<String>()
         games.forEach {
             serializedGames.add(Json.encodeToString(it))
@@ -83,6 +69,66 @@ object GameHelper {
 
         cachedGameList = games.toMutableList()
         return games.toList()
+    }
+
+    private fun addGamesRecursive(
+        games: MutableList<Game>,
+        directories: List<Uri>
+    ) {
+        val pendingDirectories = ArrayDeque<Uri>()
+        directories.forEach { pendingDirectories.addLast(it) }
+
+        val visitedDirectories = mutableSetOf<String>()
+        val addedFiles = mutableSetOf<String>()
+
+        while (pendingDirectories.isNotEmpty()) {
+            val directory = pendingDirectories.removeFirst()
+
+            val directoryKey = if (directory.scheme == "file") {
+                directory.path?.let {
+                    runCatching { File(it).canonicalPath }
+                        .getOrDefault(directory.toString())
+                } ?: directory.toString()
+            } else {
+                directory.toString()
+            }
+
+            if (!visitedDirectories.add(directoryKey)) {
+                continue
+            }
+
+            FileUtil.listFiles(directory).forEach { document ->
+                val filename = FileUtil.getFilename(document.uri)
+
+                if (filename.startsWith(".")) {
+                    return@forEach
+                }
+
+                if (document.isDirectory) {
+                    pendingDirectories.addLast(document.uri)
+                } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
+                    val fileKey = if (document.uri.scheme == "file") {
+                        document.uri.path?.let {
+                            runCatching { File(it).canonicalPath }
+                                .getOrDefault(document.uri.toString())
+                        } ?: document.uri.toString()
+                    } else {
+                        document.uri.toString()
+                    }
+
+                    if (addedFiles.add(fileKey)) {
+                        games.add(
+                            getGame(
+                                document.uri,
+                                isInstalled = false,
+                                addedToLibrary = true,
+                                Game.MediaType.GAME_CARD
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     
