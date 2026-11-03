@@ -1,4 +1,3 @@
-
 // Copyright 2023-2026 Citra Emulator Project / Azahar Emulator Project
 // Licensed under GPLv3 or any later version
 // Refer to the LICENSE.txt file included.
@@ -92,7 +91,6 @@ object GameHelper {
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
     ): Game {
-        val filePath = uri.toString()
         var nativePath: String? = null
         var gameInfo: GameInfo?
         if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
