@@ -1,3 +1,4 @@
+
 // Copyright 2023-2026 Citra Emulator Project / Azahar Emulator Project
 // Licensed under GPLv3 or any later version
 // Refer to the LICENSE.txt file included.
@@ -24,14 +25,73 @@ object GameHelper {
     var cachedGameList = mutableListOf<Game>()
     private lateinit var preferences: SharedPreferences
 
-        fun getGame(
+    fun getGames(): List<Game> {
+        val games = mutableListOf<Game>()
+        val context = CitraApplication.appContext
+        preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
+        val gamesUri = Uri.parse(gamesDir)
+
+        addGamesRecursive(games, FileUtil.listFiles(gamesUri), 3)
+        NativeLibrary.getInstalledGamePaths().forEach {
+            games.add(
+                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
+            )
+        }
+
+        // Cache list of games found on disk
+        val serializedGames = mutableSetOf<String>()
+        games.forEach {
+            serializedGames.add(Json.encodeToString(it))
+        }
+        preferences.edit()
+            .remove(KEY_GAMES)
+            .putStringSet(KEY_GAMES, serializedGames)
+            .apply()
+
+        cachedGameList = games.toMutableList()
+        return games.toList()
+    }
+
+    private fun addGamesRecursive(
+        games: MutableList<Game>,
+        files: Array<CheapDocument>,
+        depth: Int
+    ) {
+        if (depth <= 0) {
+            return
+        }
+
+        files.forEach {
+            val filename = FileUtil.getFilename(it.uri)
+            if (filename.startsWith(".")) {
+                return@forEach
+            }
+            if (it.isDirectory) {
+                addGamesRecursive(games, FileUtil.listFiles(it.uri), depth - 1)
+            } else {
+                if (Game.extensions.contains(FileUtil.getExtension(it.uri))) {
+                    games.add(
+                        getGame(
+                            it.uri,
+                            isInstalled = false,
+                            addedToLibrary = true,
+                            Game.MediaType.GAME_CARD
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun getGame(
         uri: Uri,
         isInstalled: Boolean,
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
     ): Game {
         val filePath = if (uri.scheme == "file") {
-            uri.path ?: return Game(filename = "")
+            uri.path ?: uri.toString()
         } else {
             uri.toString()
         }
@@ -65,7 +125,7 @@ object GameHelper {
                 gameInfo?.getTitle() ?: FileUtil.getFilename(
                     Uri.parse(filePath)
                 )
-                ).replace("[\\t\\n\\r]+".toRegex(), " "),
+            ).replace("[\\t\\n\\r]+".toRegex(), " "),
             filePath.replace("\n", " "),
             if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
                 filePath.startsWith("!")
@@ -89,7 +149,11 @@ object GameHelper {
             gameInfo?.getIcon(),
             gameInfo?.getFileType() ?: "",
             gameInfo?.getFileType()?.contains("(Z)") ?: false,
-            FileUtil.getFilename(Uri.parse(filePath))
+            if (FileUtil.isNativePath(filePath)) {
+                CitraApplication.documentsTree.getFilename(filePath)
+            } else {
+                FileUtil.getFilename(Uri.parse(filePath))
+            }
         )
 
         if (addedToLibrary) {
@@ -102,21 +166,8 @@ object GameHelper {
         }
 
         return newGame
-        }
-
-        // Cache list of games found on disk
-        val serializedGames = mutableSetOf<String>()
-        games.forEach {
-            serializedGames.add(Json.encodeToString(it))
-        }
-        preferences.edit()
-            .remove(KEY_GAMES)
-            .putStringSet(KEY_GAMES, serializedGames)
-            .apply()
-
-        cachedGameList = games.toMutableList()
-        return games.toList()
     }
+}
 
     private fun addGamesRecursive(
         games: MutableList<Game>,
