@@ -592,14 +592,9 @@ object FileUtil {
         return paths.size == 2 && PATH_TREE == paths[0]
     }
 
-    @JvmStatic
-    fun isNativePath(path: String): Boolean = // FIXME: This function name is bullshit -OS
-        try {
-            path[0] == '/'
-        } catch (e: StringIndexOutOfBoundsException) {
-            Log.error("[FileUtil] Cannot determine the string is native path or not.")
-            false
-        }
+        @JvmStatic
+    fun isNativePath(path: String): Boolean =
+        path.startsWith("/") || Uri.parse(path).scheme == "file"
 
     fun getFreeSpace(context: Context, uri: Uri?): Double = try {
         val docTreeUri = DocumentsContract.buildDocumentUriUsingTree(
