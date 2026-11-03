@@ -5,6 +5,7 @@
 package org.citra.citra_emu.fragments
 
 import android.Manifest
+import org.citra.citra_emu.utils.DirectoryInitialization
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -569,6 +570,11 @@ class SetupFragment : Fragment() {
     }
 
     private val permissionLauncher =
+    if (isGranted) {
+    DirectoryInitialization.start()
+    checkForButtonState.invoke()
+    return@registerForActivityResult
+    }
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
                 checkForButtonState.invoke()
@@ -581,6 +587,11 @@ class SetupFragment : Fragment() {
     // We can't use permissionLauncher because MANAGE_EXTERNAL_STORAGE is a special snowflake
     @RequiresApi(Build.VERSION_CODES.R)
     private val manageExternalStoragePermissionLauncher =
+    if (Environment.isExternalStorageManager()) {
+    DirectoryInitialization.start()
+    checkForButtonState.invoke()
+    return@registerForActivityResult
+    }
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             BuildUtil.assertNotGooglePlay()
             if (Environment.isExternalStorageManager()) {
