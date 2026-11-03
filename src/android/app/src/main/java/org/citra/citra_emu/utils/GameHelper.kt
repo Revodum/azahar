@@ -6,6 +6,9 @@ package org.citra.citra_emu.utils
 
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Environment
+import java.io.File
+import java.util.ArrayDeque
 import androidx.preference.PreferenceManager
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -25,19 +28,49 @@ object GameHelper {
     private lateinit var preferences: SharedPreferences
 
     fun getGames(): List<Game> {
-        val games = mutableListOf<Game>()
-        val context = CitraApplication.appContext
-        preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
-        val gamesUri = Uri.parse(gamesDir)
+    val games = mutableListOf<Game>()
+    val context = CitraApplication.appContext
+    preferences = PreferenceManager.getDefaultSharedPreferences(context)
 
-        addGamesRecursive(games, FileUtil.listFiles(gamesUri), 3)
-        NativeLibrary.getInstalledGamePaths().forEach {
-            games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
-            )
+    val directories = mutableListOf<Uri>()
+    val gamesDir = preferences.getString(KEY_GAME_PATH, "")
+
+    if (!gamesDir.isNullOrEmpty()) {
+        directories.add(Uri.parse(gamesDir))
+    }
+
+    if (!BuildUtil.isGooglePlayBuild &&
+        PermissionsHandler.hasManageExternalStorageAccess()
+    ) {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        )
+
+        if (downloadsDir.isDirectory) {
+            directories.add(Uri.fromFile(downloadsDir))
         }
+    }
 
+    addGamesRecursive(games, directories)
+
+    NativeLibrary.getInstalledGamePaths().forEach {
+        games.add(
+            getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
+        )
+    }
+
+    val serializedGames = mutableSetOf<String>()
+    games.forEach {
+        serializedGames.add(Json.encodeToString(it))
+    }
+    preferences.edit()
+        .remove(KEY_GAMES)
+        .putStringSet(KEY_GAMES, serializedGames)
+        .apply()
+
+    cachedGameList = games.toMutableList()
+    return games.toList()
+    }
         // Cache list of games found on disk
         val serializedGames = mutableSetOf<String>()
         games.forEach {
@@ -52,36 +85,7 @@ object GameHelper {
         return games.toList()
     }
 
-    private fun addGamesRecursive(
-        games: MutableList<Game>,
-        files: Array<CheapDocument>,
-        depth: Int
-    ) {
-        if (depth <= 0) {
-            return
-        }
-
-        files.forEach {
-            val filename = FileUtil.getFilename(it.uri)
-            if (filename.startsWith(".")) {
-                return@forEach
-            }
-            if (it.isDirectory) {
-                addGamesRecursive(games, FileUtil.listFiles(it.uri), depth - 1)
-            } else {
-                if (Game.extensions.contains(FileUtil.getExtension(it.uri))) {
-                    games.add(
-                        getGame(
-                            it.uri,
-                            isInstalled = false,
-                            addedToLibrary = true,
-                            Game.MediaType.GAME_CARD
-                        )
-                    )
-                }
-            }
-        }
-    }
+    
 
 
 
