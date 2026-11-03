@@ -24,18 +24,84 @@ object GameHelper {
     var cachedGameList = mutableListOf<Game>()
     private lateinit var preferences: SharedPreferences
 
-    fun getGames(): List<Game> {
-        val games = mutableListOf<Game>()
-        val context = CitraApplication.appContext
-        preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
-        val gamesUri = Uri.parse(gamesDir)
+        fun getGame(
+        uri: Uri,
+        isInstalled: Boolean,
+        addedToLibrary: Boolean,
+        mediaType: Game.MediaType
+    ): Game {
+        val filePath = if (uri.scheme == "file") {
+            uri.path ?: return Game(filename = "")
+        } else {
+            uri.toString()
+        }
 
-        addGamesRecursive(games, FileUtil.listFiles(gamesUri), 3)
-        NativeLibrary.getInstalledGamePaths().forEach {
-            games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
-            )
+        var nativePath: String? = null
+        var gameInfo: GameInfo?
+
+        if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
+            filePath.startsWith("!")
+        ) {
+            gameInfo = GameInfo(filePath)
+        } else {
+            nativePath = if (uri.scheme == "fd") {
+                uri.toString()
+            } else {
+                "!" + NativeLibrary.getNativePath(uri)
+            }
+            gameInfo = GameInfo(nativePath)
+        }
+
+        val valid = gameInfo.isValid()
+        if (!valid) {
+            gameInfo = null
+        }
+
+        val isEncrypted = gameInfo?.isEncrypted() == true
+
+        val newGame = Game(
+            valid,
+            (
+                gameInfo?.getTitle() ?: FileUtil.getFilename(
+                    Uri.parse(filePath)
+                )
+                ).replace("[\\t\\n\\r]+".toRegex(), " "),
+            filePath.replace("\n", " "),
+            if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
+                filePath.startsWith("!")
+            ) {
+                filePath
+            } else {
+                nativePath!!
+            },
+            gameInfo?.getTitleID() ?: 0,
+            mediaType,
+            gameInfo?.getCompany() ?: "",
+            if (isEncrypted) {
+                CitraApplication.appContext.getString(R.string.unsupported_encrypted)
+            } else {
+                gameInfo?.getRegions() ?: ""
+            },
+            isInstalled,
+            gameInfo?.isSystemTitle() ?: false,
+            gameInfo?.getIsVisibleSystemTitle() ?: false,
+            gameInfo?.getIsInsertable() ?: false,
+            gameInfo?.getIcon(),
+            gameInfo?.getFileType() ?: "",
+            gameInfo?.getFileType()?.contains("(Z)") ?: false,
+            FileUtil.getFilename(Uri.parse(filePath))
+        )
+
+        if (addedToLibrary) {
+            val addedTime = preferences.getLong(newGame.keyAddedToLibraryTime, 0L)
+            if (addedTime == 0L) {
+                preferences.edit()
+                    .putLong(newGame.keyAddedToLibraryTime, System.currentTimeMillis())
+                    .apply()
+            }
+        }
+
+        return newGame
         }
 
         // Cache list of games found on disk
