@@ -5,7 +5,6 @@
 package org.citra.citra_emu.fragments
 
 import android.Manifest
-import org.citra.citra_emu.utils.DirectoryInitialization
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -51,6 +50,7 @@ import org.citra.citra_emu.utils.PermissionsHandler
 import org.citra.citra_emu.utils.ViewUtils
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
+import org.citra.citra_emu.utils.DirectoryInitialization
 
 class SetupFragment : Fragment() {
     private var _binding: FragmentSetupBinding? = null
@@ -570,37 +570,28 @@ class SetupFragment : Fragment() {
     }
 
     private val permissionLauncher =
-    if (isGranted) {
-    DirectoryInitialization.start()
-    checkForButtonState.invoke()
-    return@registerForActivityResult
-    }
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                checkForButtonState.invoke()
-                return@registerForActivityResult
-            }
-
-            showPermissionDeniedSnackbar()
+    registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            checkForButtonState.invoke()
+            return@registerForActivityResult
         }
 
-    // We can't use permissionLauncher because MANAGE_EXTERNAL_STORAGE is a special snowflake
-    @RequiresApi(Build.VERSION_CODES.R)
-    private val manageExternalStoragePermissionLauncher =
-    if (Environment.isExternalStorageManager()) {
-    DirectoryInitialization.start()
-    checkForButtonState.invoke()
-    return@registerForActivityResult
+        showPermissionDeniedSnackbar()
     }
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            BuildUtil.assertNotGooglePlay()
-            if (Environment.isExternalStorageManager()) {
-                checkForButtonState.invoke()
-                return@registerForActivityResult
-            }
 
-            showPermissionDeniedSnackbar()
+// We can't use permissionLauncher because MANAGE_EXTERNAL_STORAGE is a special snowflake
+@RequiresApi(Build.VERSION_CODES.R)
+private val manageExternalStoragePermissionLauncher =
+    registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        BuildUtil.assertNotGooglePlay()
+        if (Environment.isExternalStorageManager()) {
+            DirectoryInitialization.start()
+            checkForButtonState.invoke()
+            return@registerForActivityResult
         }
+
+        showPermissionDeniedSnackbar()
+    }
 
     private fun onOpenCitraDirectory(result: Uri) {
         if (!BuildUtil.isGooglePlayBuild) {
