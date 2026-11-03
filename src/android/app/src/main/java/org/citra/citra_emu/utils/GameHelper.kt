@@ -169,36 +169,6 @@ object GameHelper {
     }
 }
 
-    private fun addGamesRecursive(
-        games: MutableList<Game>,
-        files: Array<CheapDocument>,
-        depth: Int
-    ) {
-        if (depth <= 0) {
-            return
-        }
-
-        files.forEach {
-            val filename = FileUtil.getFilename(it.uri)
-            if (filename.startsWith(".")) {
-                return@forEach
-            }
-            if (it.isDirectory) {
-                addGamesRecursive(games, FileUtil.listFiles(it.uri), depth - 1)
-            } else {
-                if (Game.extensions.contains(FileUtil.getExtension(it.uri))) {
-                    games.add(
-                        getGame(
-                            it.uri,
-                            isInstalled = false,
-                            addedToLibrary = true,
-                            Game.MediaType.GAME_CARD
-                        )
-                    )
-                }
-            }
-        }
-    }
 
     fun getGame(
         uri: Uri,
