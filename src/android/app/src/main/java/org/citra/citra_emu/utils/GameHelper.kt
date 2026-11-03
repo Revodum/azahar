@@ -90,7 +90,13 @@ object GameHelper {
         isInstalled: Boolean,
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
-    ): Game {
+        ): Game {
+        val filePath = if (uri.scheme == "file") {
+            uri.path ?: uri.toString()
+        } else {
+            uri.toString()
+        }
+
         var nativePath: String? = null
         var gameInfo: GameInfo?
         if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
