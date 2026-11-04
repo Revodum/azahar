@@ -928,7 +928,7 @@ object NativeLibrary {
             FileUtil.renameFile(path, destinationFilename)
         }
 
-     @Keep
+         @Keep
     @JvmStatic
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean =
         if (FileUtil.isNativePath(sourcePath) &&
