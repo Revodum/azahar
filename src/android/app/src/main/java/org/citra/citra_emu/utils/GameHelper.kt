@@ -7,9 +7,9 @@ package org.citra.citra_emu.utils
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Environment
+import androidx.preference.PreferenceManager
 import java.io.File
 import java.util.ArrayDeque
-import androidx.preference.PreferenceManager
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
@@ -26,7 +26,7 @@ object GameHelper {
     var cachedGameList = mutableListOf<Game>()
     private lateinit var preferences: SharedPreferences
 
-        fun getGames(): List<Game> {
+    fun getGames(): List<Game> {
         val games = mutableListOf<Game>()
         val context = CitraApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
@@ -131,16 +131,12 @@ object GameHelper {
         }
     }
 
-    
-
-
-
     fun getGame(
         uri: Uri,
         isInstalled: Boolean,
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
-        ): Game {
+    ): Game {
         val filePath = if (uri.scheme == "file") {
             uri.path ?: uri.toString()
         } else {
