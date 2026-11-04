@@ -20,49 +20,49 @@ object PermissionsHandler {
     const val CITRA_DIRECTORY = "CITRA_DIRECTORY"
     val preferences: SharedPreferences =
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
-        val citraDirectory: Uri
-    get() {
-        val directoryString = preferences.getString(CITRA_DIRECTORY, "")
-        return Uri.parse(directoryString)
-    }
 
-       fun hasManageExternalStorageAccess(): Boolean {
-    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-        Environment.isExternalStorageManager()
-}
-
-fun hasWriteAccess(context: Context): Boolean {
-    if (hasManageExternalStorageAccess()) {
-        return true
-    }
-
-    try {
-        if (citraDirectory.toString().isEmpty()) {
-            return false
+    val citraDirectory: Uri
+        get() {
+            val directoryString = preferences.getString(CITRA_DIRECTORY, "")
+            return Uri.parse(directoryString)
         }
 
-        val uri = citraDirectory
-        val takeFlags =
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    fun hasManageExternalStorageAccess(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            Environment.isExternalStorageManager()
 
-        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-
-        val root = DocumentFile.fromTreeUri(context, uri)
-        if (root != null && root.exists()) {
+    fun hasWriteAccess(context: Context): Boolean {
+        if (hasManageExternalStorageAccess()) {
             return true
         }
 
-        context.contentResolver.releasePersistableUriPermission(uri, takeFlags)
-    } catch (e: Exception) {
-        // Do not use native library logging, as the native library may not be loaded yet
-        android.util.Log.e(
-            "PermissionsHandler",
-            "Cannot check citra data directory permission, error: ${e.message}"
-        )
-    }
+        try {
+            if (citraDirectory.toString().isEmpty()) {
+                return false
+            }
 
-    return false
-}
+            val uri = citraDirectory
+            val takeFlags =
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+
+            val root = DocumentFile.fromTreeUri(context, uri)
+            if (root != null && root.exists()) {
+                return true
+            }
+
+            context.contentResolver.releasePersistableUriPermission(uri, takeFlags)
+        } catch (e: Exception) {
+            // Do not use native library logging, as the native library may not be loaded yet
+            android.util.Log.e(
+                "PermissionsHandler",
+                "Cannot check citra data directory permission, error: ${e.message}"
+            )
+        }
+
+        return false
+    }
 
     fun setCitraDirectory(uriString: String?) =
         preferences.edit().putString(CITRA_DIRECTORY, uriString).apply()
