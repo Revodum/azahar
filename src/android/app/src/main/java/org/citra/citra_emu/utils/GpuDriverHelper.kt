@@ -26,7 +26,7 @@ object GpuDriverHelper {
     var driverInstallationPath: String? = null
     private var hookLibPath: String? = null
 
-        val driverStoragePath: DocumentFile
+    val driverStoragePath: DocumentFile
         get() {
             // Use the physical filesystem when MANAGE_EXTERNAL_STORAGE is granted.
             val userPath = DirectoryInitialization.userPath
