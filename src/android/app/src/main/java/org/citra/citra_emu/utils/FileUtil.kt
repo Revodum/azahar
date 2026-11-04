@@ -7,10 +7,10 @@ package org.citra.citra_emu.utils
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.system.Os
 import android.util.Pair
-import android.os.ParcelFileDescriptor
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedInputStream
@@ -92,7 +92,7 @@ object FileUtil {
         }
     }
 
-        /**
+    /**
      * Open content uri or physical file and return file descriptor to JNI.
      *
      * @param path Native content uri path
@@ -131,7 +131,7 @@ object FileUtil {
         }
     }
 
-        /**
+    /**
      * Reference: https://stackoverflow.com/questions/42186820/documentfile-is-very-slow
      * This function will be faster than DocumentFile.listFiles
      *
@@ -193,7 +193,7 @@ object FileUtil {
         return results.toTypedArray()
     }
 
-        /**
+    /**
      * Check whether given path exists.
      *
      * @param path Native content uri path
@@ -226,8 +226,8 @@ object FileUtil {
         }
         return false
     }
-    
-        /**
+
+    /**
      * Check whether given path is a directory
      *
      * @param path content uri path
@@ -257,6 +257,7 @@ object FileUtil {
         }
         return isDirectory
     }
+
     /**
      * Get file display name from given path
      *
@@ -304,7 +305,7 @@ object FileUtil {
         return files.toTypedArray<String?>()
     }
 
-        /**
+    /**
      * Get file size from given path.
      *
      * @param path content uri path
@@ -592,7 +593,7 @@ object FileUtil {
         return paths.size == 2 && PATH_TREE == paths[0]
     }
 
-        @JvmStatic
+    @JvmStatic
     fun isNativePath(path: String): Boolean =
         path.startsWith("/") || Uri.parse(path).scheme == "file"
 
