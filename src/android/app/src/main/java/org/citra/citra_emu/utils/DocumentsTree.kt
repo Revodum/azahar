@@ -247,7 +247,6 @@ class DocumentsTree {
         return current.uri ?: current.file?.toUri()
     }
             
-
     @Synchronized
     fun isDirectory(filepath: String): Boolean {
         val node = resolvePath(filepath) ?: return false
@@ -256,8 +255,6 @@ class DocumentsTree {
 
     @Synchronized
     fun exists(filepath: String): Boolean = resolvePath(filepath) != null
-
-
     
     @Synchronized
     fun copyFile(
@@ -358,15 +355,11 @@ class DocumentsTree {
             return false
         }
     }
-
-
-
     
-    @Synchronized
-    fun moveFile(
-        filename: String,
-        sourceDirPath: String,
-        destDirPath: String
+        @Synchronized
+    fun moveFile(filename: String,
+                 sourceDirPath: String,
+                 destDirPath: String
     ): Boolean {
         val sourcePath = "$sourceDirPath/$filename"
         val destinationPath = "$destDirPath/$filename"
@@ -394,8 +387,6 @@ class DocumentsTree {
 
         return false
     }
-
-
     
     @Synchronized
     fun deleteDocument(filepath: String): Boolean {
@@ -424,7 +415,6 @@ class DocumentsTree {
         }
     }
 
- 
     @Synchronized
     fun renameFile(filepath: String, destinationFilename: String): Boolean {
         val node = resolvePath(filepath) ?: return false
@@ -494,9 +484,7 @@ class DocumentsTree {
             return false
         }
     }
-    
-    
-    
+      
     @Synchronized
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean {
         val sourceNode = resolvePath(sourcePath) ?: return false
@@ -561,7 +549,6 @@ class DocumentsTree {
             return false
         }
     }
-
 
     @Synchronized
     private fun resolvePath(filepath: String): DocumentsNode? {
