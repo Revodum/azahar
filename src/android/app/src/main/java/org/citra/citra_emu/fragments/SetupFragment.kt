@@ -312,7 +312,7 @@ class SetupFragment : Fragment() {
                     R.drawable.ic_folder,
                     R.string.select_emulator_data_folders,
                     R.string.select_emulator_data_folders_description,
-                    0,
+                    0, 
                     true,
                     R.string.select,
                     pageButtons = mutableListOf<PageButton>().apply {
@@ -372,15 +372,7 @@ class SetupFragment : Fragment() {
                         )
                     }
                 ) {
-                    if (
-                        PermissionsHandler.hasWriteAccess(requireContext()) &&
-                        preferences.getString(GameHelper.KEY_GAME_PATH, "")!!.isNotEmpty()
-                    ) {
-                        PageState.PAGE_STEPS_COMPLETE
-                    } else {
-                        PageState.PAGE_STEPS_INCOMPLETE
-                    }
-                }
+                    
             )
 
             add(
