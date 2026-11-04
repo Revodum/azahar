@@ -71,10 +71,8 @@ object GameHelper {
         return games.toList()
     }
 
-    private fun addGamesRecursive(
-        games: MutableList<Game>,
-        directories: List<Uri>
-    ) {
+        private fun addGamesRecursive(games: MutableList<Game>, directories: List<Uri>) {
+
         val pendingDirectories = ArrayDeque<Uri>()
         directories.forEach { pendingDirectories.addLast(it) }
 
