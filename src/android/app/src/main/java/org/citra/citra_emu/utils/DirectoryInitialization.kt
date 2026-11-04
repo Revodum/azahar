@@ -5,9 +5,8 @@
 package org.citra.citra_emu.utils
 
 import android.content.Context
-import android.os.Environment
-import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
 import android.net.Uri
+import android.os.Environment
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -16,7 +15,8 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.NativeLibrary
-import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
+import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
+import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
 
 /**
  * A service that spawns its own thread in order to copy several binary and shader files
@@ -33,8 +33,8 @@ object DirectoryInitialization {
     private val isCitraDirectoryInitializationRunning = AtomicBoolean(false)
 
     val context: Context get() = CitraApplication.appContext
-
-        @JvmStatic
+    
+    @JvmStatic
     fun start(): DirectoryInitializationState? {
         if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
             return null
@@ -96,8 +96,8 @@ object DirectoryInitialization {
             return userPath
         }
 
-    fun setCitraUserDirectory(): Boolean {
-    if (hasManageExternalStorageAccess()) {
+        fun setCitraUserDirectory(): Boolean {
+            if (hasManageExternalStorageAccess()) {
         val downloadsDirectory =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val directory = File(downloadsDirectory, "Azahar")
@@ -118,8 +118,8 @@ object DirectoryInitialization {
         return true
     }
 
-    val dataPath = PermissionsHandler.citraDirectory
-    if (dataPath.toString().isNotEmpty()) {
+        val dataPath = PermissionsHandler.citraDirectory
+        if (dataPath.toString().isNotEmpty()) {
         userPath = dataPath.toString()
         android.util.Log.d(
             "[Azahar Frontend]",
