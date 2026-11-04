@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.NativeLibrary
 import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
-import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
+import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
 
 /**
  * A service that spawns its own thread in order to copy several binary and shader files
@@ -33,7 +33,7 @@ object DirectoryInitialization {
     private val isCitraDirectoryInitializationRunning = AtomicBoolean(false)
 
     val context: Context get() = CitraApplication.appContext
-    
+
     @JvmStatic
     fun start(): DirectoryInitializationState? {
         if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
@@ -76,6 +76,7 @@ object DirectoryInitialization {
             isCitraDirectoryInitializationRunning.set(false)
         }
     }
+
     @JvmStatic
     fun areCitraDirectoriesReady(): Boolean =
         directoryState == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
@@ -96,39 +97,39 @@ object DirectoryInitialization {
             return userPath
         }
 
-        fun setCitraUserDirectory(): Boolean {
-            if (hasManageExternalStorageAccess()) {
-        val downloadsDirectory =
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val directory = File(downloadsDirectory, "Azahar")
+    fun setCitraUserDirectory(): Boolean {
+        if (hasManageExternalStorageAccess()) {
+            val downloadsDirectory =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val directory = File(downloadsDirectory, "Azahar")
 
-        if (!directory.exists() && !directory.mkdirs()) {
-            return false
+            if (!directory.exists() && !directory.mkdirs()) {
+                return false
+            }
+
+            if (!directory.isDirectory) {
+                return false
+            }
+
+            userPath = directory.canonicalPath + File.separator
+            android.util.Log.d(
+                "[Azahar Frontend]",
+                "[DirectoryInitialization] User Dir: $userPath"
+            )
+            return true
         }
-
-        if (!directory.isDirectory) {
-            return false
-        }
-
-        userPath = directory.canonicalPath + File.separator
-        android.util.Log.d(
-            "[Azahar Frontend]",
-            "[DirectoryInitialization] User Dir: $userPath"
-        )
-        return true
-    }
 
         val dataPath = PermissionsHandler.citraDirectory
         if (dataPath.toString().isNotEmpty()) {
-        userPath = dataPath.toString()
-        android.util.Log.d(
-            "[Azahar Frontend]",
-            "[DirectoryInitialization] User Dir: $userPath"
-        )
-        return true
-    }
+            userPath = dataPath.toString()
+            android.util.Log.d(
+                "[Azahar Frontend]",
+                "[DirectoryInitialization] User Dir: $userPath"
+            )
+            return true
+        }
 
-    return false
+        return false
     }
 
     private fun copyAsset(asset: String, output: File, overwrite: Boolean, context: Context) {
