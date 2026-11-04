@@ -20,6 +20,11 @@ object PermissionsHandler {
     const val CITRA_DIRECTORY = "CITRA_DIRECTORY"
     val preferences: SharedPreferences =
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
+        val citraDirectory: Uri
+    get() {
+        val directoryString = preferences.getString(CITRA_DIRECTORY, "")
+        return Uri.parse(directoryString)
+    }
 
        fun hasManageExternalStorageAccess(): Boolean {
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
