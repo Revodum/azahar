@@ -133,19 +133,22 @@ class DocumentsTree {
 
         if (file != null) {
             return try {
-                val mode = when (openMode) {
+                                val mode = when (openMode) {
                     "r" -> ParcelFileDescriptor.MODE_READ_ONLY
 
-                    "rw" -> ParcelFileDescriptor.MODE_READ_WRITE or
-                        ParcelFileDescriptor.MODE_CREATE
+                    "rw" ->
+                        ParcelFileDescriptor.MODE_READ_WRITE or
+                            ParcelFileDescriptor.MODE_CREATE
 
-                    "wa" -> ParcelFileDescriptor.MODE_WRITE_ONLY or
-                        ParcelFileDescriptor.MODE_CREATE or
-                        ParcelFileDescriptor.MODE_APPEND
+                    "wa" ->
+                        ParcelFileDescriptor.MODE_WRITE_ONLY or
+                            ParcelFileDescriptor.MODE_CREATE or
+                            ParcelFileDescriptor.MODE_APPEND
 
-                    "rwa" -> ParcelFileDescriptor.MODE_READ_WRITE or
-                        ParcelFileDescriptor.MODE_CREATE or
-                        ParcelFileDescriptor.MODE_APPEND
+                    "rwa" ->
+                        ParcelFileDescriptor.MODE_READ_WRITE or
+                            ParcelFileDescriptor.MODE_CREATE or
+                            ParcelFileDescriptor.MODE_APPEND
 
                     else -> throw IllegalArgumentException(
                         "Unsupported file open mode: $openMode"
