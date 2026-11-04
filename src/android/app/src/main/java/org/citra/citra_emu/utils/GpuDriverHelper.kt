@@ -26,18 +26,41 @@ object GpuDriverHelper {
     var driverInstallationPath: String? = null
     private var hookLibPath: String? = null
 
-    val driverStoragePath: DocumentFile
+        val driverStoragePath: DocumentFile
         get() {
-            // Bypass directory initialization checks
-            val root = DocumentFile.fromTreeUri(
-                CitraApplication.appContext,
-                Uri.parse(DirectoryInitialization.userPath)
-            )!!
-            var driverDirectory = root.findFile("gpu_drivers")
-            if (driverDirectory == null) {
-                driverDirectory = FileUtil.createDir(root.uri.toString(), "gpu_drivers")
+            // Use the physical filesystem when MANAGE_EXTERNAL_STORAGE is granted.
+            val userPath = DirectoryInitialization.userPath
+                ?: throw IllegalStateException("Azahar user directory is not initialized")
+            val userUri = Uri.parse(userPath)
+
+            if (userUri.scheme == "content") {
+                // SAF directory selected by the user.
+                val root = DocumentFile.fromTreeUri(
+                    CitraApplication.appContext,
+                    userUri
+                ) ?: throw IllegalStateException("Cannot open Azahar user directory")
+
+                return root.findFile("gpu_drivers")
+                    ?: FileUtil.createDir(root.uri.toString(), "gpu_drivers")
+                    ?: throw IllegalStateException("GPU driver directory couldn't be created")
             }
-            return driverDirectory!!
+
+            // MANAGE_EXTERNAL_STORAGE uses a normal filesystem path, not a SAF tree URI.
+            val userDirectory = if (userUri.scheme == "file") {
+                File(userUri.path ?: userPath)
+            } else {
+                File(userPath)
+            }
+            val driverDirectory = File(userDirectory, "gpu_drivers")
+
+            if (!driverDirectory.exists() && !driverDirectory.mkdirs()) {
+                throw IllegalStateException("GPU driver directory couldn't be created")
+            }
+            if (!driverDirectory.isDirectory) {
+                throw IllegalStateException("GPU driver path is not a directory")
+            }
+
+            return DocumentFile.fromFile(driverDirectory)
         }
 
     fun initializeDriverParameters() {
