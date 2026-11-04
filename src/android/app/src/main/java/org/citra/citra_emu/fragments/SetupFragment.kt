@@ -45,12 +45,12 @@ import org.citra.citra_emu.model.SetupPage
 import org.citra.citra_emu.ui.main.MainActivity
 import org.citra.citra_emu.utils.BuildUtil
 import org.citra.citra_emu.utils.CitraDirectoryHelper
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.PermissionsHandler
 import org.citra.citra_emu.utils.ViewUtils
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
-import org.citra.citra_emu.utils.DirectoryInitialization
 
 class SetupFragment : Fragment() {
     private var _binding: FragmentSetupBinding? = null
@@ -312,7 +312,7 @@ class SetupFragment : Fragment() {
                     R.drawable.ic_folder,
                     R.string.select_emulator_data_folders,
                     R.string.select_emulator_data_folders_description,
-                    0, 
+                    0,
                     true,
                     R.string.select,
                     pageButtons = mutableListOf<PageButton>().apply {
@@ -339,7 +339,6 @@ class SetupFragment : Fragment() {
                                 R.string.cannot_skip,
                                 R.string.cannot_skip_directory_description,
                                 R.string.cannot_skip_directory_help
-
                             )
                         )
                         add(
@@ -371,7 +370,7 @@ class SetupFragment : Fragment() {
                             )
                         )
                     }
-                                ) {
+                ) {
                     if (PermissionsHandler.hasWriteAccess(requireContext())) {
                         PageState.PAGE_STEPS_COMPLETE
                     } else {
@@ -567,28 +566,28 @@ class SetupFragment : Fragment() {
     }
 
     private val permissionLauncher =
-    registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            checkForButtonState.invoke()
-            return@registerForActivityResult
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                checkForButtonState.invoke()
+                return@registerForActivityResult
+            }
+
+            showPermissionDeniedSnackbar()
         }
 
-        showPermissionDeniedSnackbar()
-    }
+    // We can't use permissionLauncher because MANAGE_EXTERNAL_STORAGE is a special snowflake
+    @RequiresApi(Build.VERSION_CODES.R)
+    private val manageExternalStoragePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            BuildUtil.assertNotGooglePlay()
+            if (Environment.isExternalStorageManager()) {
+                DirectoryInitialization.start()
+                checkForButtonState.invoke()
+                return@registerForActivityResult
+            }
 
-// We can't use permissionLauncher because MANAGE_EXTERNAL_STORAGE is a special snowflake
-@RequiresApi(Build.VERSION_CODES.R)
-private val manageExternalStoragePermissionLauncher =
-    registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        BuildUtil.assertNotGooglePlay()
-        if (Environment.isExternalStorageManager()) {
-            DirectoryInitialization.start()
-            checkForButtonState.invoke()
-            return@registerForActivityResult
+            showPermissionDeniedSnackbar()
         }
-
-        showPermissionDeniedSnackbar()
-    }
 
     private fun onOpenCitraDirectory(result: Uri) {
         if (!BuildUtil.isGooglePlayBuild) {
