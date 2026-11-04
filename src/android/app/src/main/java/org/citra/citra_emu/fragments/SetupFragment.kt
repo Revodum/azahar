@@ -371,8 +371,13 @@ class SetupFragment : Fragment() {
                             )
                         )
                     }
-                ) {
-                    
+                                ) {
+                    if (PermissionsHandler.hasWriteAccess(requireContext())) {
+                        PageState.PAGE_STEPS_COMPLETE
+                    } else {
+                        PageState.PAGE_STEPS_INCOMPLETE
+                    }
+                }
             )
 
             add(
