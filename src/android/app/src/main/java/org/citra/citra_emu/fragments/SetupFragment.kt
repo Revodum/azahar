@@ -589,15 +589,14 @@ class SetupFragment : Fragment() {
             showPermissionDeniedSnackbar()
         }
 
-    private fun hasValidUserDirectory(): Boolean {
-        return if (!BuildUtil.isGooglePlayBuild &&
+    private fun hasValidUserDirectory(): Boolean =
+        if (!BuildUtil.isGooglePlayBuild &&
             PermissionsHandler.hasManageExternalStorageAccess()
         ) {
             DirectoryInitialization.areCitraDirectoriesReady()
         } else {
             PermissionsHandler.hasWriteAccess(requireContext())
         }
-    }
 
     private fun onOpenCitraDirectory(result: Uri) {
         if (!BuildUtil.isGooglePlayBuild) {
