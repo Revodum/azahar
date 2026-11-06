@@ -133,7 +133,7 @@ class DocumentsTree {
 
         if (file != null) {
             return try {
-                                val mode = when (openMode) {
+                val mode = when (openMode) {
                     "r" -> ParcelFileDescriptor.MODE_READ_ONLY
 
                     "rw" ->
