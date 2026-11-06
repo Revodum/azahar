@@ -41,6 +41,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.navigation.NavigationBarView
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.citra.citra_emu.BuildConfig
 import org.citra.citra_emu.NativeLibrary
@@ -239,7 +240,10 @@ class MainActivity :
 
             if (DirectoryInitialization.areCitraDirectoriesReady()) {
                 SettingsFile.loadSettings(CitraSettings.activeSettings)
-                gamesViewModel.reloadGames(true)
+                lifecycleScope.launch {
+                    gamesViewModel.isReloading.first { !it }
+                    gamesViewModel.reloadGames(true)
+                }
             }
         }
 
