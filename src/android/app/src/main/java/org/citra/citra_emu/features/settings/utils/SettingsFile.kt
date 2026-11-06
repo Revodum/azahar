@@ -8,6 +8,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedReader
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStreamReader
@@ -238,8 +239,17 @@ object SettingsFile {
         return Pair(key, value)
     }
 
+    private fun getUserRootDirectory(): DocumentFile? {
+        val directoryUri = Uri.parse(userDirectory)
+        return if (directoryUri.scheme == "content") {
+            DocumentFile.fromTreeUri(CitraApplication.appContext, directoryUri)
+        } else {
+            DocumentFile.fromFile(File(userDirectory))
+        }
+    }
+
     fun getSettingsFile(fileName: String): DocumentFile {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
+        val root = getUserRootDirectory()
         val configDirectory = root!!.findFile("config")
         return configDirectory!!.findFile("$fileName.ini")!!
     }
@@ -247,7 +257,7 @@ object SettingsFile {
     fun customExists(gameId: String): Boolean = findCustomGameSettingsFile(gameId) != null
 
     private fun findCustomGameSettingsFile(gameId: String): DocumentFile? {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
+        val root = getUserRootDirectory()
         val configDir = root?.findFile("config") ?: return null
         val customDir = configDir.findFile("custom") ?: return null
         return customDir.findFile("$gameId.ini")
