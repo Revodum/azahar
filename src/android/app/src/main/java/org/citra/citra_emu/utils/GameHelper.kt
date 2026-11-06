@@ -138,11 +138,13 @@ object GameHelper {
     private fun getCanonicalPath(uri: Uri): String? {
         val path = when (uri.scheme) {
             "file" -> uri.path
+
             "content" -> if (BuildUtil.isGooglePlayBuild) {
                 null
             } else {
                 NativeLibrary.getNativePath(uri).takeIf { it.isNotBlank() }
             }
+
             else -> null
         } ?: return null
 
