@@ -264,7 +264,7 @@ object SettingsFile {
     }
 
     private fun getOrCreateCustomGameSettingsFile(gameId: String): DocumentFile {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))!!
+        val root = getUserRootDirectory()!!
         val configDir = root.findFile("config") ?: root.createDirectory("config")!!
         val customDir = configDir.findFile("custom") ?: configDir.createDirectory("custom")!!
         return customDir.findFile("$gameId.ini")
