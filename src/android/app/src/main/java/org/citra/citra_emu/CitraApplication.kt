@@ -28,7 +28,7 @@ object StartupDiagnostics {
     @Synchronized
     fun begin(appContext: Context) {
         context = appContext.applicationContext
-        val header = "Azahar startup diagnostic\\nStarted: ${System.currentTimeMillis()}\\n"
+        val header = "Azahar startup diagnostic\nStarted: ${System.currentTimeMillis()}\n"
         writeToFiles(appContext.applicationContext, header, append = false)
         android.util.Log.i("AzaharStartup", "Startup diagnostics initialized")
     }
@@ -39,10 +39,10 @@ object StartupDiagnostics {
         val entry = buildString {
             append("[${System.currentTimeMillis()}] ")
             append(message)
-            append('\\n')
+            append('\n')
             if (error != null) {
                 append(android.util.Log.getStackTraceString(error))
-                append('\\n')
+                append('\n')
             }
         }
         if (error == null) {
