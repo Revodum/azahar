@@ -41,28 +41,46 @@ object DirectoryInitialization {
             return null
         }
 
+        StartupDiagnostics.record(
+            "DirectoryInitialization.start: entered; manageExternalStorage=${hasManageExternalStorageAccess()}"
+        )
         try {
             if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
                 directoryState = if (hasManageExternalStorageAccess()) {
+                    StartupDiagnostics.record("DirectoryInitialization: preparing filesystem user directory")
                     if (setCitraUserDirectory()) {
+                        StartupDiagnostics.record("DirectoryInitialization: user path selected: $userPath")
                         val directory = File(userPath!!)
                         CitraApplication.documentsTree.setFilesystemRoot(directory)
+                        StartupDiagnostics.record("DirectoryInitialization: filesystem DocumentsTree root set")
                         NativeLibrary.setUserDirectory(userPath!!)
+                        StartupDiagnostics.record("DirectoryInitialization: native user directory set")
                         NativeLibrary.createLogFile()
+                        StartupDiagnostics.record("DirectoryInitialization: native log initialized")
                         NativeLibrary.logUserDirectory(userPath.toString())
+                        StartupDiagnostics.record("DirectoryInitialization: user directory logged")
                         NativeLibrary.createConfigFile()
+                        StartupDiagnostics.record("DirectoryInitialization: native config initialized")
                         GpuDriverHelper.initializeDriverParameters()
+                        StartupDiagnostics.record("DirectoryInitialization: GPU driver parameters initialized")
                         DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
                     } else {
                         DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
                     }
                 } else if (hasWriteAccess(context)) {
+                    StartupDiagnostics.record("DirectoryInitialization: preparing SAF user directory")
                     if (setCitraUserDirectory()) {
+                        StartupDiagnostics.record("DirectoryInitialization: SAF user path selected: $userPath")
                         CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
+                        StartupDiagnostics.record("DirectoryInitialization: SAF DocumentsTree root set")
                         NativeLibrary.createLogFile()
+                        StartupDiagnostics.record("DirectoryInitialization: native log initialized")
                         NativeLibrary.logUserDirectory(userPath.toString())
+                        StartupDiagnostics.record("DirectoryInitialization: user directory logged")
                         NativeLibrary.createConfigFile()
+                        StartupDiagnostics.record("DirectoryInitialization: native config initialized")
                         GpuDriverHelper.initializeDriverParameters()
+                        StartupDiagnostics.record("DirectoryInitialization: GPU driver parameters initialized")
                         DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
                     } else {
                         DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
@@ -72,9 +90,11 @@ object DirectoryInitialization {
                 }
             }
 
+            StartupDiagnostics.record("DirectoryInitialization.start: completed with state=$directoryState")
             return directoryState
         } finally {
             isCitraDirectoryInitializationRunning.set(false)
+            StartupDiagnostics.record("DirectoryInitialization.start: running flag cleared")
         }
     }
 
