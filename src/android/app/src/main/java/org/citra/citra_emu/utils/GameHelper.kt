@@ -52,10 +52,25 @@ object GameHelper {
 
         addGamesRecursive(games, directories)
 
-        NativeLibrary.getInstalledGamePaths().forEach {
-            games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
-            )
+        try {
+            NativeLibrary.getInstalledGamePaths().forEach { installedGame ->
+                try {
+                    games.add(
+                        getGame(
+                            Uri.parse(installedGame.path),
+                            isInstalled = true,
+                            addedToLibrary = true,
+                            installedGame.mediaType
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.error(
+                        "[GameHelper] Failed to load installed game: ${e.message}"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.error("[GameHelper] Failed to enumerate installed games: ${e.message}")
         }
 
         val serializedGames = mutableSetOf<String>()
