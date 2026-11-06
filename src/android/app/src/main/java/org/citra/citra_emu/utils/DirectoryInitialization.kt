@@ -15,6 +15,7 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.NativeLibrary
+import org.citra.citra_emu.StartupDiagnostics
 import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
 import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
 
