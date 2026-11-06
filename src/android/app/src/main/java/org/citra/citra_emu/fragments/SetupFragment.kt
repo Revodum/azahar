@@ -589,7 +589,7 @@ class SetupFragment : Fragment() {
             showPermissionDeniedSnackbar()
         }
 
-    private fun hasValidUserDirectory(): Boolean =
+    private fun hasValidUserDirectory() =
         if (!BuildUtil.isGooglePlayBuild &&
             PermissionsHandler.hasManageExternalStorageAccess()
         ) {
