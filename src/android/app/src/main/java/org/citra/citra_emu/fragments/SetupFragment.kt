@@ -590,12 +590,12 @@ class SetupFragment : Fragment() {
         }
 
     private fun hasValidUserDirectory() = if (!BuildUtil.isGooglePlayBuild &&
-            PermissionsHandler.hasManageExternalStorageAccess()
-        ) {
-            DirectoryInitialization.areCitraDirectoriesReady()
-        } else {
-            PermissionsHandler.hasWriteAccess(requireContext())
-        }
+        PermissionsHandler.hasManageExternalStorageAccess()
+    ) {
+        DirectoryInitialization.areCitraDirectoriesReady()
+    } else {
+        PermissionsHandler.hasWriteAccess(requireContext())
+    }
 
     private fun onOpenCitraDirectory(result: Uri) {
         if (!BuildUtil.isGooglePlayBuild) {
