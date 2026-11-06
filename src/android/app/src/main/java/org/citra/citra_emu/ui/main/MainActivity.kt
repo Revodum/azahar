@@ -230,6 +230,22 @@ class MainActivity :
         themeId = resId
     }
 
+    fun onFilesystemPermissionGranted() {
+        if (PermissionsHandler.hasWriteAccess(this) &&
+            !CitraDirectoryUtils.needToUpdateManually()
+        ) {
+            DirectoryInitialization.resetCitraDirectoryState()
+            DirectoryInitialization.start()
+
+            if (DirectoryInitialization.areCitraDirectoriesReady()) {
+                SettingsFile.loadSettings(CitraSettings.activeSettings)
+                gamesViewModel.reloadGames(true)
+            }
+        }
+
+        checkUserPermissions()
+    }
+
     private fun checkUserPermissions() {
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
             .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
