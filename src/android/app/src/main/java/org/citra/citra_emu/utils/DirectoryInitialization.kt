@@ -35,6 +35,7 @@ object DirectoryInitialization {
     val context: Context get() = CitraApplication.appContext
 
     @JvmStatic
+    @Synchronized
     fun start(): DirectoryInitializationState? {
         if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
             return null
@@ -81,9 +82,9 @@ object DirectoryInitialization {
     fun areCitraDirectoriesReady(): Boolean =
         directoryState == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
 
+    @Synchronized
     fun resetCitraDirectoryState() {
         directoryState = null
-        isCitraDirectoryInitializationRunning.compareAndSet(true, false)
     }
 
     val userDirectory: String?
