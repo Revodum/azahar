@@ -100,14 +100,20 @@ object GameHelper {
                     val fileKey = getCanonicalPath(document.uri) ?: document.uri.toString()
 
                     if (addedFiles.add(fileKey)) {
-                        games.add(
-                            getGame(
-                                document.uri,
-                                isInstalled = false,
-                                addedToLibrary = true,
-                                Game.MediaType.GAME_CARD
+                        try {
+                            games.add(
+                                getGame(
+                                    document.uri,
+                                    isInstalled = false,
+                                    addedToLibrary = true,
+                                    Game.MediaType.GAME_CARD
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            Log.error(
+                                "[GameHelper] Failed to load game '$filename': ${e.message}"
+                            )
+                        }
                     }
                 }
             }
