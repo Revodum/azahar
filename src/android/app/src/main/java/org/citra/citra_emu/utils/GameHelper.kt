@@ -81,14 +81,7 @@ object GameHelper {
         while (pendingDirectories.isNotEmpty()) {
             val directory = pendingDirectories.removeFirst()
 
-            val directoryKey = if (directory.scheme == "file") {
-                directory.path?.let {
-                    runCatching { File(it).canonicalPath }
-                        .getOrDefault(directory.toString())
-                } ?: directory.toString()
-            } else {
-                directory.toString()
-            }
+            val directoryKey = getCanonicalPath(directory) ?: directory.toString()
 
             if (!visitedDirectories.add(directoryKey)) {
                 continue
@@ -104,14 +97,7 @@ object GameHelper {
                 if (document.isDirectory) {
                     pendingDirectories.addLast(document.uri)
                 } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
-                    val fileKey = if (document.uri.scheme == "file") {
-                        document.uri.path?.let {
-                            runCatching { File(it).canonicalPath }
-                                .getOrDefault(document.uri.toString())
-                        } ?: document.uri.toString()
-                    } else {
-                        document.uri.toString()
-                    }
+                    val fileKey = getCanonicalPath(document.uri) ?: document.uri.toString()
 
                     if (addedFiles.add(fileKey)) {
                         games.add(
@@ -126,6 +112,20 @@ object GameHelper {
                 }
             }
         }
+    }
+
+    private fun getCanonicalPath(uri: Uri): String? {
+        val path = when (uri.scheme) {
+            "file" -> uri.path
+            "content" -> if (BuildUtil.isGooglePlayBuild) {
+                null
+            } else {
+                NativeLibrary.getNativePath(uri).takeIf { it.isNotBlank() }
+            }
+            else -> null
+        } ?: return null
+
+        return runCatching { File(path).canonicalPath }.getOrDefault(path)
     }
 
     fun getGame(
