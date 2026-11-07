@@ -107,6 +107,8 @@ object DirectoryInitialization {
                 val directory = File(dataPath.path ?: return false)
                 if (!directory.exists() && !directory.mkdirs()) return false
                 if (!directory.isDirectory || !directory.canWrite()) return false
+                val directoryUri = Uri.fromFile(directory)
+                PermissionsHandler.setCitraDirectory(directoryUri.toString())
                 userPath = directory.canonicalPath
             }
             android.util.Log.d("[Azahar Frontend]", "[DirectoryInitialization] User Dir: $userPath")
