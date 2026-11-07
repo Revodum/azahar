@@ -29,15 +29,20 @@ object GpuDriverHelper {
     val driverStoragePath: DocumentFile
         get() {
             // Bypass directory initialization checks
-            val root = DocumentFile.fromTreeUri(
-                CitraApplication.appContext,
-                Uri.parse(DirectoryInitialization.userPath)
-            )!!
+            val userPath = DirectoryInitialization.userPath
+                ?: throw IllegalStateException("User directory is not initialized")
+            val rootUri = Uri.parse(userPath)
+            val root = if (!BuildUtil.isGooglePlayBuild) {
+                DocumentFile.fromFile(File(userPath))
+            } else {
+                DocumentFile.fromTreeUri(CitraApplication.appContext, rootUri)
+            } ?: throw IllegalStateException("Cannot access user directory")
             var driverDirectory = root.findFile("gpu_drivers")
             if (driverDirectory == null) {
                 driverDirectory = FileUtil.createDir(root.uri.toString(), "gpu_drivers")
             }
-            return driverDirectory!!
+            return driverDirectory
+                ?: throw IllegalStateException("Cannot create GPU driver directory")
         }
 
     fun initializeDriverParameters() {
