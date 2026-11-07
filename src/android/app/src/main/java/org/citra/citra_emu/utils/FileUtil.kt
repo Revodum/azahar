@@ -396,9 +396,10 @@ object FileUtil {
 
             // Searching all files which need to be copied and struct the directory in destination
             while (dirs.isNotEmpty()) {
-                val fromDir = DocumentFile.fromTreeUri(context, dirs[0].first)
-                val toDir = DocumentFile.fromTreeUri(context, dirs[0].second)
+                val fromDir = directoryDocument(dirs[0].first)
+                val toDir = directoryDocument(dirs[0].second)
                 if (fromDir == null || toDir == null) {
+                    dirs.removeAt(0)
                     continue
                 }
 
