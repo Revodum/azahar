@@ -41,6 +41,9 @@ object GameHelper {
                 if (!exists()) mkdirs()
             }.absolutePath
         }
+        if (!BuildUtil.isGooglePlayBuild) {
+            preferences.edit().putString(KEY_GAME_PATH, gamesDir).apply()
+        }
         val gamesUri = Uri.parse(gamesDir)
 
         val visitedDirectories = mutableSetOf<String>()
@@ -192,7 +195,7 @@ object GameHelper {
         val uri = getLaunchUri(intent) ?: return null
         return try {
             if (BuildUtil.isGooglePlayBuild || uri.scheme == "file" ||
-                uri.toString().startsWith("!")
+                FileUtil.isNativePath(uri.toString()) || uri.toString().startsWith("!")
             ) {
                 getGame(
                     uri,
