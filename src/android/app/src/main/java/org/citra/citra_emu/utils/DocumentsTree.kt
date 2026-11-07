@@ -1,6 +1,6 @@
 // Copyright 2023-2026 Citra Emulator Project / Azahar Emulator Project
-// Licensed under GPLv2 or any later version
-// Refer to the misc/licenses/gplv2.txt file included.
+// Licensed under GPLv3 or any later version
+// Refer to the LICENSE.txt file included.
 
 package org.citra.citra_emu.utils
 
@@ -133,26 +133,12 @@ class DocumentsTree {
 
         if (file != null) {
             return try {
-                                val mode = when (openMode) {
-                    "r" -> ParcelFileDescriptor.MODE_READ_ONLY
-
-                    "rw" ->
-                        ParcelFileDescriptor.MODE_READ_WRITE or
-                            ParcelFileDescriptor.MODE_CREATE
-
-                    "wa" ->
-                        ParcelFileDescriptor.MODE_WRITE_ONLY or
-                            ParcelFileDescriptor.MODE_CREATE or
-                            ParcelFileDescriptor.MODE_APPEND
-
-                    "rwa" ->
-                        ParcelFileDescriptor.MODE_READ_WRITE or
-                            ParcelFileDescriptor.MODE_CREATE or
-                            ParcelFileDescriptor.MODE_APPEND
-
-                    else -> throw IllegalArgumentException(
-                        "Unsupported file open mode: $openMode"
-                    )
+                val mode = if (openMode == "rwa") {
+                    ParcelFileDescriptor.MODE_READ_WRITE or
+                        ParcelFileDescriptor.MODE_CREATE or
+                        ParcelFileDescriptor.MODE_APPEND
+                } else {
+                    ParcelFileDescriptor.parseMode(openMode)
                 }
 
                 ParcelFileDescriptor.open(file, mode).detachFd()

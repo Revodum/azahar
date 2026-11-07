@@ -41,6 +41,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.navigation.NavigationBarView
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.citra.citra_emu.BuildConfig
 import org.citra.citra_emu.NativeLibrary
@@ -210,10 +211,10 @@ class MainActivity :
     }
 
     override fun onResume() {
-        checkUserPermissions()
+        super.onResume()
 
         ThemeUtil.setCorrectTheme(this)
-        super.onResume()
+        checkUserPermissions()
     }
 
     override fun onDestroy() {
@@ -230,7 +231,31 @@ class MainActivity :
         themeId = resId
     }
 
+    fun onFilesystemPermissionGranted() {
+        if (PermissionsHandler.hasWriteAccess(this) &&
+            !CitraDirectoryUtils.needToUpdateManually()
+        ) {
+            if (!DirectoryInitialization.areCitraDirectoriesReady()) {
+                DirectoryInitialization.start()
+            }
+
+            if (DirectoryInitialization.areCitraDirectoriesReady()) {
+                SettingsFile.loadSettings(CitraSettings.activeSettings)
+                lifecycleScope.launch {
+                    gamesViewModel.isReloading.first { !it }
+                    gamesViewModel.reloadGames(true)
+                }
+            }
+        }
+
+        checkUserPermissions()
+    }
+
     private fun checkUserPermissions() {
+        if (supportFragmentManager.isStateSaved) {
+            return
+        }
+
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
             .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
 
@@ -243,23 +268,23 @@ class MainActivity :
                 GrantMissingFilesystemPermissionFragment.newInstance()
                     .show(supportFragmentManager, GrantMissingFilesystemPermissionFragment.TAG)
 
-            if (supportFragmentManager.findFragmentByTag(
-                    GrantMissingFilesystemPermissionFragment.TAG
-                ) == null
-            ) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    if (!Environment.isExternalStorageManager()) {
-                        requestMissingFilesystemPermission()
-                    }
-                } else {
-                    if (ContextCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        requestMissingFilesystemPermission()
-                    }
+            val permissionMissing = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                !Environment.isExternalStorageManager()
+            } else {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            }
+
+            if (permissionMissing) {
+                if (supportFragmentManager.findFragmentByTag(
+                        GrantMissingFilesystemPermissionFragment.TAG
+                    ) == null
+                ) {
+                    requestMissingFilesystemPermission()
                 }
+                return
             }
         }
 
@@ -268,12 +293,22 @@ class MainActivity :
         }
 
         if (!PermissionsHandler.hasWriteAccess(this)) {
-            SelectUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
+            if (supportFragmentManager.findFragmentByTag(
+                    SelectUserDirectoryDialogFragment.TAG
+                ) == null
+            ) {
+                SelectUserDirectoryDialogFragment.newInstance(this)
+                    .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
+            }
             return
         } else if (CitraDirectoryUtils.needToUpdateManually()) {
-            UpdateUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
+            if (supportFragmentManager.findFragmentByTag(
+                    UpdateUserDirectoryDialogFragment.TAG
+                ) == null
+            ) {
+                UpdateUserDirectoryDialogFragment.newInstance(this)
+                    .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
+            }
             return
         }
 

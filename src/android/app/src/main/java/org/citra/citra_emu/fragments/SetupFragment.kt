@@ -328,7 +328,7 @@ class SetupFragment : Fragment() {
                                     )
                                 },
                                 buttonState = {
-                                    if (PermissionsHandler.hasWriteAccess(requireContext())) {
+                                    if (hasValidUserDirectory()) {
                                         ButtonState.BUTTON_ACTION_COMPLETE
                                     } else {
                                         ButtonState.BUTTON_ACTION_INCOMPLETE
@@ -371,7 +371,7 @@ class SetupFragment : Fragment() {
                         )
                     }
                 ) {
-                    if (PermissionsHandler.hasWriteAccess(requireContext())) {
+                    if (hasValidUserDirectory()) {
                         PageState.PAGE_STEPS_COMPLETE
                     } else {
                         PageState.PAGE_STEPS_INCOMPLETE
@@ -588,6 +588,14 @@ class SetupFragment : Fragment() {
 
             showPermissionDeniedSnackbar()
         }
+
+    private fun hasValidUserDirectory() = if (!BuildUtil.isGooglePlayBuild &&
+        PermissionsHandler.hasManageExternalStorageAccess()
+    ) {
+        DirectoryInitialization.areCitraDirectoriesReady()
+    } else {
+        PermissionsHandler.hasWriteAccess(requireContext())
+    }
 
     private fun onOpenCitraDirectory(result: Uri) {
         if (!BuildUtil.isGooglePlayBuild) {

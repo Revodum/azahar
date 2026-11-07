@@ -1,6 +1,6 @@
 // Copyright 2025-2026 Citra Emulator Project / Azahar Emulator Project
-// Licensed under GPLv2 or any later version
-// Refer to the misc/licenses/gplv2.txt file included.
+// Licensed under GPLv3 or any later version
+// Refer to the LICENSE.txt file included.
 
 package org.citra.citra_emu.fragments
 
@@ -57,6 +57,8 @@ class GrantMissingFilesystemPermissionFragment : DialogFragment() {
     private val manageExternalStoragePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (Environment.isExternalStorageManager()) {
+                dismissAllowingStateLoss()
+                mainActivity.onFilesystemPermissionGranted()
                 return@registerForActivityResult
             }
         }
@@ -64,6 +66,8 @@ class GrantMissingFilesystemPermissionFragment : DialogFragment() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
+                dismissAllowingStateLoss()
+                mainActivity.onFilesystemPermissionGranted()
                 return@registerForActivityResult
             }
         }

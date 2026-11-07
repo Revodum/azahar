@@ -351,6 +351,11 @@ void Config::Reload() {
                        *key);
         }
     }
-    LoadINI(DefaultINI::android_config_default_file_content);
+    if (!LoadINI(DefaultINI::android_config_default_file_content)) {
+        // Keep the built-in defaults if the config file cannot be created or loaded.
+        // ReadValues() requires a valid INIReader and would otherwise dereference null.
+        LOG_ERROR(Config, "Skipping config values because the Android config could not be loaded.");
+        return;
+    }
     ReadValues();
 }

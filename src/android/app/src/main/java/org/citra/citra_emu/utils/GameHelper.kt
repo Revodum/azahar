@@ -52,10 +52,25 @@ object GameHelper {
 
         addGamesRecursive(games, directories)
 
-        NativeLibrary.getInstalledGamePaths().forEach {
-            games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
-            )
+        try {
+            NativeLibrary.getInstalledGamePaths().forEach { installedGame ->
+                try {
+                    games.add(
+                        getGame(
+                            Uri.parse(installedGame.path),
+                            isInstalled = true,
+                            addedToLibrary = true,
+                            installedGame.mediaType
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.error(
+                        "[GameHelper] Failed to load installed game: ${e.message}"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.error("[GameHelper] Failed to enumerate installed games: ${e.message}")
         }
 
         val serializedGames = mutableSetOf<String>()
@@ -71,8 +86,7 @@ object GameHelper {
         return games.toList()
     }
 
-        private fun addGamesRecursive(games: MutableList<Game>, directories: List<Uri>) {
-
+    private fun addGamesRecursive(games: MutableList<Game>, directories: List<Uri>) {
         val pendingDirectories = ArrayDeque<Uri>()
         directories.forEach { pendingDirectories.addLast(it) }
 
@@ -82,14 +96,7 @@ object GameHelper {
         while (pendingDirectories.isNotEmpty()) {
             val directory = pendingDirectories.removeFirst()
 
-            val directoryKey = if (directory.scheme == "file") {
-                directory.path?.let {
-                    runCatching { File(it).canonicalPath }
-                        .getOrDefault(directory.toString())
-                } ?: directory.toString()
-            } else {
-                directory.toString()
-            }
+            val directoryKey = getCanonicalPath(directory) ?: directory.toString()
 
             if (!visitedDirectories.add(directoryKey)) {
                 continue
@@ -105,28 +112,43 @@ object GameHelper {
                 if (document.isDirectory) {
                     pendingDirectories.addLast(document.uri)
                 } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
-                    val fileKey = if (document.uri.scheme == "file") {
-                        document.uri.path?.let {
-                            runCatching { File(it).canonicalPath }
-                                .getOrDefault(document.uri.toString())
-                        } ?: document.uri.toString()
-                    } else {
-                        document.uri.toString()
-                    }
+                    val fileKey = getCanonicalPath(document.uri) ?: document.uri.toString()
 
                     if (addedFiles.add(fileKey)) {
-                        games.add(
-                            getGame(
-                                document.uri,
-                                isInstalled = false,
-                                addedToLibrary = true,
-                                Game.MediaType.GAME_CARD
+                        try {
+                            games.add(
+                                getGame(
+                                    document.uri,
+                                    isInstalled = false,
+                                    addedToLibrary = true,
+                                    Game.MediaType.GAME_CARD
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            Log.error(
+                                "[GameHelper] Failed to load game '$filename': ${e.message}"
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    private fun getCanonicalPath(uri: Uri): String? {
+        val path = when (uri.scheme) {
+            "file" -> uri.path
+
+            "content" -> if (BuildUtil.isGooglePlayBuild) {
+                null
+            } else {
+                NativeLibrary.getNativePath(uri).takeIf { it.isNotBlank() }
+            }
+
+            else -> null
+        } ?: return null
+
+        return runCatching { File(path).canonicalPath }.getOrDefault(path)
     }
 
     fun getGame(

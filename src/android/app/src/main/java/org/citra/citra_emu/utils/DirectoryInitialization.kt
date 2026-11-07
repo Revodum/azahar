@@ -1,6 +1,6 @@
 // Copyright 2023-2026 Citra Emulator Project / Azahar Emulator Project
-// Licensed under GPLv2 or any later version
-// Refer to the misc/licenses/gplv2.txt file included.
+// Licensed under GPLv3 or any later version
+// Refer to the LICENSE.txt file included.
 
 package org.citra.citra_emu.utils
 
@@ -15,6 +15,7 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.NativeLibrary
+import org.citra.citra_emu.StartupDiagnostics
 import org.citra.citra_emu.utils.PermissionsHandler.hasManageExternalStorageAccess
 import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
 
@@ -35,33 +36,83 @@ object DirectoryInitialization {
     val context: Context get() = CitraApplication.appContext
 
     @JvmStatic
+    @Synchronized
     fun start(): DirectoryInitializationState? {
         if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
             return null
         }
 
+        StartupDiagnostics.record(
+            "DirectoryInitialization.start: entered; " +
+                "manageExternalStorage=${hasManageExternalStorageAccess()}"
+        )
         try {
             if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
                 directoryState = if (hasManageExternalStorageAccess()) {
+                    StartupDiagnostics.record(
+                        "DirectoryInitialization: preparing filesystem user directory"
+                    )
                     if (setCitraUserDirectory()) {
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: user path selected: $userPath"
+                        )
                         val directory = File(userPath!!)
                         CitraApplication.documentsTree.setFilesystemRoot(directory)
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: filesystem DocumentsTree root set"
+                        )
                         NativeLibrary.setUserDirectory(userPath!!)
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: native user directory set"
+                        )
                         NativeLibrary.createLogFile()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: native log initialized"
+                        )
                         NativeLibrary.logUserDirectory(userPath.toString())
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: user directory logged"
+                        )
                         NativeLibrary.createConfigFile()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: native config initialized"
+                        )
                         GpuDriverHelper.initializeDriverParameters()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: GPU driver parameters initialized"
+                        )
                         DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
                     } else {
                         DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
                     }
                 } else if (hasWriteAccess(context)) {
+                    StartupDiagnostics.record(
+                        "DirectoryInitialization: preparing SAF user directory"
+                    )
                     if (setCitraUserDirectory()) {
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: SAF user path selected: $userPath"
+                        )
                         CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: SAF DocumentsTree root set"
+                        )
                         NativeLibrary.createLogFile()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: native log initialized"
+                        )
                         NativeLibrary.logUserDirectory(userPath.toString())
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: user directory logged"
+                        )
                         NativeLibrary.createConfigFile()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: native config initialized"
+                        )
                         GpuDriverHelper.initializeDriverParameters()
+                        StartupDiagnostics.record(
+                            "DirectoryInitialization: GPU driver parameters initialized"
+                        )
                         DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
                     } else {
                         DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
@@ -71,9 +122,13 @@ object DirectoryInitialization {
                 }
             }
 
+            StartupDiagnostics.record(
+                "DirectoryInitialization.start: completed with state=$directoryState"
+            )
             return directoryState
         } finally {
             isCitraDirectoryInitializationRunning.set(false)
+            StartupDiagnostics.record("DirectoryInitialization.start: running flag cleared")
         }
     }
 
@@ -81,9 +136,9 @@ object DirectoryInitialization {
     fun areCitraDirectoriesReady(): Boolean =
         directoryState == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
 
+    @Synchronized
     fun resetCitraDirectoryState() {
         directoryState = null
-        isCitraDirectoryInitializationRunning.compareAndSet(true, false)
     }
 
     val userDirectory: String?

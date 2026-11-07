@@ -31,6 +31,7 @@ import java.util.Date
 import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.utils.BuildUtil
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.FileUtil
 import org.citra.citra_emu.utils.GraphicsUtil
 import org.citra.citra_emu.utils.Log
@@ -858,6 +859,13 @@ object NativeLibrary {
     @Keep
     @JvmStatic
     fun getUserDirectory(): String {
+        val initializedUserPath = DirectoryInitialization.userPath
+        if (!initializedUserPath.isNullOrEmpty() &&
+            Uri.parse(initializedUserPath).scheme != "content"
+        ) {
+            return initializedUserPath.trimEnd('/')
+        }
+
         val preferences: SharedPreferences =
             PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
         val userDirectoryUri = preferences.getString("CITRA_DIRECTORY", "")!!.toUri()
@@ -928,7 +936,7 @@ object NativeLibrary {
             FileUtil.renameFile(path, destinationFilename)
         }
 
-      @Keep
+    @Keep
     @JvmStatic
     fun updateDocumentLocation(sourcePath: String, destinationPath: String): Boolean =
         if (FileUtil.isNativePath(sourcePath) &&

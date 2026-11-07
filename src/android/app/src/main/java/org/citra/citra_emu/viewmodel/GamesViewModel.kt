@@ -1,6 +1,6 @@
 // Copyright 2023-2026 Citra Emulator Project / Azahar Emulator Project
-// Licensed under GPLv2 or any later version
-// Refer to the misc/licenses/gplv2.txt file included.
+// Licensed under GPLv3 or any later version
+// Refer to the LICENSE.txt file included.
 
 package org.citra.citra_emu.viewmodel
 
@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
 import java.io.File
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,7 @@ import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.utils.GameHelper
+import org.citra.citra_emu.utils.Log
 
 class GamesViewModel : ViewModel() {
     val games get() = _games.asStateFlow()
@@ -114,13 +116,20 @@ class GamesViewModel : ViewModel() {
         _isReloading.value = true
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                setGames(GameHelper.getGames())
-                _isReloading.value = false
+            try {
+                withContext(Dispatchers.IO) {
+                    setGames(GameHelper.getGames())
 
-                if (directoryChanged) {
-                    setShouldSwapData(true)
+                    if (directoryChanged) {
+                        setShouldSwapData(true)
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.error("[GamesViewModel] Failed to reload games: ${e.message}")
+            } finally {
+                _isReloading.value = false
             }
         }
     }

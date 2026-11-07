@@ -10,12 +10,82 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.os.Environment
+import java.io.File
 import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.DocumentsTree
 import org.citra.citra_emu.utils.GraphicsUtil
 import org.citra.citra_emu.utils.Log
 import org.citra.citra_emu.utils.MemoryUtil
 import org.citra.citra_emu.utils.PermissionsHandler
+
+object StartupDiagnostics {
+    private const val FILE_NAME = "azahar_startup_diagnostic.txt"
+
+    @Volatile
+    private var context: Context? = null
+
+    @Synchronized
+    fun begin(appContext: Context) {
+        context = appContext.applicationContext
+        val header = "Azahar startup diagnostic\nStarted: ${System.currentTimeMillis()}\n"
+        writeToFiles(appContext.applicationContext, header, append = false)
+        android.util.Log.i("AzaharStartup", "Startup diagnostics initialized")
+    }
+
+    @Synchronized
+    fun record(message: String, error: Throwable? = null) {
+        val appContext = context ?: return
+        val entry = buildString {
+            append("[${System.currentTimeMillis()}] ")
+            append(message)
+            append('\n')
+            if (error != null) {
+                append(android.util.Log.getStackTraceString(error))
+                append('\n')
+            }
+        }
+        if (error == null) {
+            android.util.Log.i("AzaharStartup", message)
+        } else {
+            android.util.Log.e("AzaharStartup", message, error)
+        }
+        writeToFiles(appContext, entry, append = true)
+    }
+
+    private fun writeToFiles(appContext: Context, content: String, append: Boolean) {
+        try {
+            val internalFile = File(appContext.filesDir, FILE_NAME)
+            if (append) internalFile.appendText(content) else internalFile.writeText(content)
+        } catch (error: Exception) {
+            android.util.Log.e("AzaharStartup", "Cannot write internal startup report", error)
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                !Environment.isExternalStorageManager()
+            ) {
+                return
+            }
+
+            val downloads = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
+            val directory = File(downloads, "Azahar")
+            if (!directory.exists() && !directory.mkdirs()) {
+                return
+            }
+            if (!directory.isDirectory) {
+                return
+            }
+
+            val report = File(directory, FILE_NAME)
+            if (append) report.appendText(content) else report.writeText(content)
+        } catch (error: Exception) {
+            android.util.Log.e("AzaharStartup", "Cannot write public startup report", error)
+        }
+    }
+}
 
 class CitraApplication : Application() {
     private fun createNotificationChannel() {
@@ -49,16 +119,37 @@ class CitraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        application = this
-        documentsTree = DocumentsTree()
-        if (PermissionsHandler.hasWriteAccess(applicationContext)) {
-            DirectoryInitialization.start()
+        StartupDiagnostics.begin(applicationContext)
+
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            StartupDiagnostics.record("Uncaught exception on thread ${thread.name}", error)
+            previousHandler?.uncaughtException(thread, error)
         }
 
+        StartupDiagnostics.record("CitraApplication.onCreate: setting application context")
+        application = this
+        documentsTree = DocumentsTree()
+
+        if (PermissionsHandler.hasWriteAccess(applicationContext)) {
+            StartupDiagnostics.record("CitraApplication.onCreate: before DirectoryInitialization.start")
+            val state = DirectoryInitialization.start()
+            StartupDiagnostics.record(
+                "CitraApplication.onCreate: DirectoryInitialization.start returned $state"
+            )
+        } else {
+            StartupDiagnostics.record("CitraApplication.onCreate: storage permission not granted")
+        }
+
+        StartupDiagnostics.record("CitraApplication.onCreate: before NativeLibrary.logDeviceInfo")
         NativeLibrary.logDeviceInfo()
+        StartupDiagnostics.record("CitraApplication.onCreate: after NativeLibrary.logDeviceInfo")
         logDeviceInfo()
+        StartupDiagnostics.record("CitraApplication.onCreate: after frontend device logging")
         createNotificationChannel()
+        StartupDiagnostics.record("CitraApplication.onCreate: after createNotificationChannel")
         NativeLibrary.playTimeManagerInit()
+        StartupDiagnostics.record("CitraApplication.onCreate: completed")
     }
 
     fun logDeviceInfo() {
