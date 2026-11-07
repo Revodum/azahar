@@ -40,7 +40,7 @@ object FileUtil {
         uri.scheme == "file" || (uri.scheme == null && uri.path?.startsWith("/") == true)
 
     private fun fileFromUri(uri: Uri): File? =
-        if (isFileUri(uri)) File(uri.path ?: return null) else null
+        if (isFileUri(uri)) uri.path?.let(::File) else null
 
     private fun directoryDocument(uri: Uri): DocumentFile? =
         fileFromUri(uri)?.let { DocumentFile.fromFile(it) }
@@ -585,22 +585,23 @@ object FileUtil {
             false
         }
 
-    fun getFreeSpace(context: Context, uri: Uri?): Double = try {
-        if (uri != null) {
-            fileFromUri(uri)?.let { return it.usableSpace / 1024.0 / 1024 / 1024 }
+    fun getFreeSpace(context: Context, uri: Uri?): Double {
+        val file = uri?.let { fileFromUri(it) }
+        if (file != null) return file.usableSpace / 1024.0 / 1024 / 1024
+        return try {
+            val docTreeUri = DocumentsContract.buildDocumentUriUsingTree(
+                uri,
+                DocumentsContract.getTreeDocumentId(uri)
+            )
+            val pfd = context.contentResolver.openFileDescriptor(docTreeUri, "r")!!
+            val stats = Os.fstatvfs(pfd.fileDescriptor)
+            val spaceInGigaBytes = stats.f_bavail * stats.f_bsize / 1024.0 / 1024 / 1024
+            pfd.close()
+            spaceInGigaBytes
+        } catch (e: Exception) {
+            Log.error("[FileUtil] Cannot get storage size.")
+            0.0
         }
-        val docTreeUri = DocumentsContract.buildDocumentUriUsingTree(
-            uri,
-            DocumentsContract.getTreeDocumentId(uri)
-        )
-        val pfd = context.contentResolver.openFileDescriptor(docTreeUri, "r")!!
-        val stats = Os.fstatvfs(pfd.fileDescriptor)
-        val spaceInGigaBytes = stats.f_bavail * stats.f_bsize / 1024.0 / 1024 / 1024
-        pfd.close()
-        spaceInGigaBytes
-    } catch (e: Exception) {
-        Log.error("[FileUtil] Cannot get storage size.")
-        0.0
     }
 
     fun closeQuietly(closeable: AutoCloseable?) {
