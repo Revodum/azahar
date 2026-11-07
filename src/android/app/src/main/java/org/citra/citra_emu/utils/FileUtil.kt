@@ -39,8 +39,7 @@ object FileUtil {
     private fun isFileUri(uri: Uri): Boolean =
         uri.scheme == "file" || (uri.scheme == null && uri.path?.startsWith("/") == true)
 
-    private fun fileFromUri(uri: Uri): File? =
-        if (isFileUri(uri)) uri.path?.let(::File) else null
+    private fun fileFromUri(uri: Uri): File? = if (isFileUri(uri)) uri.path?.let(::File) else null
 
     private fun directoryDocument(uri: Uri): DocumentFile? =
         fileFromUri(uri)?.let { DocumentFile.fromFile(it) }
@@ -648,9 +647,8 @@ object FileUtil {
 
     fun Uri.outputStream(): OutputStream = outputStreamFor(this, "wt")!!
 
-    fun Uri.asDocumentFile(): DocumentFile? =
-        fileFromUri(this)?.let { DocumentFile.fromFile(it) }
-            ?: DocumentFile.fromSingleUri(CitraApplication.appContext, this)
+    fun Uri.asDocumentFile(): DocumentFile? = fileFromUri(this)?.let { DocumentFile.fromFile(it) }
+        ?: DocumentFile.fromSingleUri(CitraApplication.appContext, this)
 
     interface CopyDirListener {
         fun onSearchProgress(directoryName: String)
