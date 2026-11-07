@@ -9,18 +9,18 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Environment
-import java.io.File
 import androidx.core.net.toUri
 import androidx.core.os.BundleCompat
 import androidx.preference.PreferenceManager
+import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
-import org.citra.citra_emu.NativeLibrary
-import org.citra.citra_emu.R
 import org.citra.citra_emu.model.CheapDocument
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.GameInfo
+import org.citra.citra_emu.NativeLibrary
+import org.citra.citra_emu.R
 
 object GameHelper {
     const val KEY_GAME_PATH = "game_path"
