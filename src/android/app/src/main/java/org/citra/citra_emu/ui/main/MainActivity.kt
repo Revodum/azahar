@@ -277,6 +277,10 @@ class MainActivity :
             }
             if (!filesystemPermissionGranted) return
 
+            if (!DirectoryInitialization.areCitraDirectoriesReady()) {
+                DirectoryInitialization.start()
+            }
+
             // Vanilla builds use the app-managed Download/Azahar directory and do not
             // require a Storage Access Framework folder selection.
             return
