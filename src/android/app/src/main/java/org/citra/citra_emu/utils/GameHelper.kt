@@ -16,11 +16,11 @@ import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
+import org.citra.citra_emu.NativeLibrary
+import org.citra.citra_emu.R
 import org.citra.citra_emu.model.CheapDocument
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.GameInfo
-import org.citra.citra_emu.NativeLibrary
-import org.citra.citra_emu.R
 
 object GameHelper {
     const val KEY_GAME_PATH = "game_path"
