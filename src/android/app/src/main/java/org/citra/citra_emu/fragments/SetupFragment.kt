@@ -45,6 +45,7 @@ import org.citra.citra_emu.model.SetupPage
 import org.citra.citra_emu.ui.main.MainActivity
 import org.citra.citra_emu.utils.BuildUtil
 import org.citra.citra_emu.utils.CitraDirectoryHelper
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.PermissionsHandler
 import org.citra.citra_emu.utils.ViewUtils
@@ -572,6 +573,11 @@ class SetupFragment : Fragment() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
+                if (!BuildUtil.isGooglePlayBuild &&
+                    PermissionsHandler.hasWriteAccess(requireContext())
+                ) {
+                    DirectoryInitialization.start()
+                }
                 checkForButtonState.invoke()
                 return@registerForActivityResult
             }
@@ -585,6 +591,7 @@ class SetupFragment : Fragment() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             BuildUtil.assertNotGooglePlay()
             if (Environment.isExternalStorageManager()) {
+                DirectoryInitialization.start()
                 checkForButtonState.invoke()
                 return@registerForActivityResult
             }
