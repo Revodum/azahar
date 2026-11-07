@@ -38,23 +38,34 @@ object DirectoryInitialization {
             return null
         }
 
-        if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
-            directoryState = if (hasWriteAccess(context)) {
-                if (setCitraUserDirectory()) {
-                    CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
-                    NativeLibrary.createLogFile()
-                    NativeLibrary.logUserDirectory(userPath.toString())
-                    NativeLibrary.createConfigFile()
-                    GpuDriverHelper.initializeDriverParameters()
-                    DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+        try {
+            if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+                directoryState = if (hasWriteAccess(context)) {
+                    if (setCitraUserDirectory()) {
+                        val rootUri = if (BuildUtil.isGooglePlayBuild) {
+                            Uri.parse(userPath)
+                        } else {
+                            Uri.fromFile(File(userPath!!))
+                        }
+                        CitraApplication.documentsTree.setRoot(rootUri)
+                        NativeLibrary.createLogFile()
+                        NativeLibrary.logUserDirectory(userPath.toString())
+                        NativeLibrary.createConfigFile()
+                        GpuDriverHelper.initializeDriverParameters()
+                        DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+                    } else {
+                        DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    }
                 } else {
-                    DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
                 }
-            } else {
-                DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
             }
+        } catch (e: Exception) {
+            Log.error("[DirectoryInitialization] Initialization failed: " + e.message)
+            directoryState = DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+        } finally {
+            isCitraDirectoryInitializationRunning.set(false)
         }
-        isCitraDirectoryInitializationRunning.set(false)
         return directoryState
     }
 
@@ -89,8 +100,15 @@ object DirectoryInitialization {
 
     fun setCitraUserDirectory(): Boolean {
         val dataPath = PermissionsHandler.citraDirectory
-        if (dataPath.toString().isNotEmpty()) {
-            userPath = dataPath.toString()
+        if (dataPath != Uri.EMPTY && dataPath.toString().isNotEmpty()) {
+            if (BuildUtil.isGooglePlayBuild) {
+                userPath = dataPath.toString()
+            } else {
+                val directory = File(dataPath.path ?: return false)
+                if (!directory.exists() && !directory.mkdirs()) return false
+                if (!directory.isDirectory || !directory.canWrite()) return false
+                userPath = directory.canonicalPath
+            }
             android.util.Log.d("[Azahar Frontend]", "[DirectoryInitialization] User Dir: $userPath")
             return true
         }
