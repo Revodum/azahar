@@ -32,7 +32,17 @@ class DocumentsTree {
     fun setRoot(rootUri: Uri?) {
         root = null
         root = DocumentsNode()
-        root!!.uri = rootUri
+        val normalizedRootUri = if (
+            !BuildUtil.isGooglePlayBuild &&
+            rootUri != null &&
+            rootUri.scheme == null &&
+            rootUri.path?.startsWith("/") == true
+        ) {
+            Uri.fromFile(File(rootUri.path!!))
+        } else {
+            rootUri
+        }
+        root!!.uri = normalizedRootUri
         root!!.isDirectory = true
     }
 
