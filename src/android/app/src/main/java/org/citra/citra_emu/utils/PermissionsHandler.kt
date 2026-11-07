@@ -9,6 +9,10 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import java.io.File
 import android.provider.DocumentsContract
 import androidx.activity.result.ActivityResultLauncher
 import androidx.documentfile.provider.DocumentFile
@@ -21,6 +25,16 @@ object PermissionsHandler {
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
 
     fun hasWriteAccess(context: Context): Boolean {
+        if (!BuildUtil.isGooglePlayBuild) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
         try {
             if (citraDirectory.toString().isEmpty()) {
                 return false
@@ -48,6 +62,11 @@ object PermissionsHandler {
 
     val citraDirectory: Uri
         get() {
+            if (!BuildUtil.isGooglePlayBuild) {
+                val downloadDirectory = File(Environment.getExternalStorageDirectory(), "Download")
+                val userDirectory = File(downloadDirectory, "Azahar")
+                return Uri.fromFile(userDirectory)
+            }
             val directoryString = preferences.getString(CITRA_DIRECTORY, "")
             return Uri.parse(directoryString)
         }
