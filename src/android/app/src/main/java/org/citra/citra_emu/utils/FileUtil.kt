@@ -121,7 +121,14 @@ object FileUtil {
         try {
             val uri = Uri.parse(path)
             val descriptor = fileFromUri(uri)?.let {
-                ParcelFileDescriptor.open(it, ParcelFileDescriptor.parseMode(openMode))
+                val mode = if (openMode == "rwa") {
+                    ParcelFileDescriptor.MODE_READ_WRITE or
+                        ParcelFileDescriptor.MODE_APPEND or
+                        ParcelFileDescriptor.MODE_CREATE
+                } else {
+                    ParcelFileDescriptor.parseMode(openMode)
+                }
+                ParcelFileDescriptor.open(it, mode)
             } ?: context.contentResolver.openFileDescriptor(uri, openMode)
             descriptor.use { parcelFileDescriptor ->
                 if (parcelFileDescriptor == null) {
