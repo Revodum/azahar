@@ -315,66 +315,67 @@ class SetupFragment : Fragment() {
                     true,
                     R.string.select,
                     pageButtons = mutableListOf<PageButton>().apply {
-                        add(
-                            PageButton(
-                                R.drawable.ic_home,
-                                R.string.select_citra_user_folder,
-                                R.string.select_citra_user_folder_description,
-                                buttonAction = {
-                                    pageButtonCallback = it
-                                    PermissionsHandler.compatibleSelectDirectory(
-                                        mainActivity.setupOpenCitraDirectory
-                                    )
-                                },
-                                buttonState = {
-                                    if (PermissionsHandler.hasWriteAccess(requireContext())) {
-                                        ButtonState.BUTTON_ACTION_COMPLETE
-                                    } else {
-                                        ButtonState.BUTTON_ACTION_INCOMPLETE
-                                    }
-                                },
-                                isUnskippable = true,
-                                hasWarning = false,
-                                R.string.cannot_skip,
-                                R.string.cannot_skip_directory_description,
-                                R.string.cannot_skip_directory_help
-
+                        if (BuildUtil.isGooglePlayBuild) {
+                            add(
+                                PageButton(
+                                    R.drawable.ic_home,
+                                    R.string.select_citra_user_folder,
+                                    R.string.select_citra_user_folder_description,
+                                    buttonAction = {
+                                        pageButtonCallback = it
+                                        PermissionsHandler.compatibleSelectDirectory(
+                                            mainActivity.setupOpenCitraDirectory
+                                        )
+                                    },
+                                    buttonState = {
+                                        if (PermissionsHandler.hasWriteAccess(requireContext())) {
+                                            ButtonState.BUTTON_ACTION_COMPLETE
+                                        } else {
+                                            ButtonState.BUTTON_ACTION_INCOMPLETE
+                                        }
+                                    },
+                                    isUnskippable = true,
+                                    hasWarning = false,
+                                    R.string.cannot_skip,
+                                    R.string.cannot_skip_directory_description,
+                                    R.string.cannot_skip_directory_help
+                                )
                             )
-                        )
-                        add(
-                            PageButton(
-                                R.drawable.ic_controller,
-                                R.string.games,
-                                R.string.games_description,
-                                buttonAction = {
-                                    pageButtonCallback = it
-                                    mainActivity.setupGetGamesDirectory.launch(
-                                        Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).data
-                                    )
-                                },
-                                buttonState = {
-                                    if (preferences.getString(
-                                            GameHelper.KEY_GAME_PATH,
-                                            ""
-                                        )!!.isNotEmpty()
-                                    ) {
-                                        ButtonState.BUTTON_ACTION_COMPLETE
-                                    } else {
-                                        ButtonState.BUTTON_ACTION_INCOMPLETE
-                                    }
-                                },
-                                isUnskippable = false,
-                                hasWarning = true,
-                                R.string.add_games_warning,
-                                R.string.add_games_warning_description
+                            add(
+                                PageButton(
+                                    R.drawable.ic_controller,
+                                    R.string.games,
+                                    R.string.games_description,
+                                    buttonAction = {
+                                        pageButtonCallback = it
+                                        mainActivity.setupGetGamesDirectory.launch(
+                                            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).data
+                                        )
+                                    },
+                                    buttonState = {
+                                        if (preferences.getString(
+                                                GameHelper.KEY_GAME_PATH,
+                                                ""
+                                            )!!.isNotEmpty()
+                                        ) {
+                                            ButtonState.BUTTON_ACTION_COMPLETE
+                                        } else {
+                                            ButtonState.BUTTON_ACTION_INCOMPLETE
+                                        }
+                                    },
+                                    isUnskippable = false,
+                                    hasWarning = true,
+                                    R.string.add_games_warning,
+                                    R.string.add_games_warning_description
+                                )
                             )
-                        )
+                        }
                     }
                 ) {
-                    if (
-                        PermissionsHandler.hasWriteAccess(requireContext()) &&
+                    val directoryReady = PermissionsHandler.hasWriteAccess(requireContext())
+                    val gamesDirectoryReady = !BuildUtil.isGooglePlayBuild ||
                         preferences.getString(GameHelper.KEY_GAME_PATH, "")!!.isNotEmpty()
-                    ) {
+                    if (directoryReady && gamesDirectoryReady) {
                         PageState.PAGE_STEPS_COMPLETE
                     } else {
                         PageState.PAGE_STEPS_INCOMPLETE
