@@ -6,17 +6,17 @@ package org.citra.citra_emu.utils
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
-import java.io.File
 import android.provider.DocumentsContract
 import androidx.activity.result.ActivityResultLauncher
+import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.preference.PreferenceManager
+import java.io.File
 import org.citra.citra_emu.CitraApplication
 
 object PermissionsHandler {
