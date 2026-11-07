@@ -356,7 +356,7 @@ object FileUtil {
         var input: InputStream? = null
         var output: FileOutputStream? = null
         try {
-            input = context.contentResolver.openInputStream(sourceUri!!)
+            input = inputStreamFor(sourceUri!!)
             output = FileOutputStream("$destinationParentPath/$destinationFilename")
             val buffer = ByteArray(1024)
             var len: Int
