@@ -19,7 +19,10 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.model.Game
+import org.citra.citra_emu.utils.BuildUtil
+import org.citra.citra_emu.utils.FileUtil
 import org.citra.citra_emu.utils.GameHelper
+import org.citra.citra_emu.utils.Log
 
 class GamesViewModel : ViewModel() {
     val games get() = _games.asStateFlow()
@@ -54,9 +57,15 @@ class GamesViewModel : ViewModel() {
                     return@forEach
                 }
 
-                val gameExists =
-                    DocumentFile.fromSingleUri(CitraApplication.appContext, Uri.parse(game.path))
-                        ?.exists()
+                val gameExists = if (BuildUtil.isGooglePlayBuild) {
+                    DocumentFile.fromSingleUri(
+                        CitraApplication.appContext,
+                        Uri.parse(game.path)
+                    )?.exists()
+                } else {
+                    // Vanilla stores ordinary filesystem paths, not SAF document URIs.
+                    runCatching { FileUtil.exists(game.path) }.getOrDefault(false)
+                }
                 if (gameExists == true) {
                     deserializedGames.add(game)
                 } else if (game.isInstalled) {
@@ -109,13 +118,18 @@ class GamesViewModel : ViewModel() {
         _isReloading.value = true
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                setGames(GameHelper.getGames())
-                _isReloading.value = false
+            try {
+                withContext(Dispatchers.IO) {
+                    setGames(GameHelper.getGames())
 
-                if (directoryChanged) {
-                    setShouldSwapData(true)
+                    if (directoryChanged) {
+                        setShouldSwapData(true)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.error("[GamesViewModel] Failed to reload games: ${e.message}")
+            } finally {
+                _isReloading.value = false
             }
         }
     }
