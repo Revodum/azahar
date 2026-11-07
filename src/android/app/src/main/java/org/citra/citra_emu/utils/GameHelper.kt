@@ -45,9 +45,20 @@ object GameHelper {
             preferences.edit().putString(KEY_GAME_PATH, gamesDir).apply()
         }
         val gamesUri = Uri.parse(gamesDir)
+        val rootCanonicalPath = if (BuildUtil.isGooglePlayBuild) {
+            null
+        } else {
+            runCatching { File(gamesDir).canonicalPath }.getOrDefault(gamesDir)
+        }
 
         val visitedDirectories = mutableSetOf<String>()
-        addGamesRecursive(games, FileUtil.listFiles(gamesUri), visitedDirectories)
+        rootCanonicalPath?.let { visitedDirectories.add(it) }
+        addGamesRecursive(
+            games,
+            FileUtil.listFiles(gamesUri),
+            visitedDirectories,
+            rootCanonicalPath
+        )
         NativeLibrary.getInstalledGamePaths().forEach {
             games.add(
                 getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
@@ -71,7 +82,8 @@ object GameHelper {
     private fun addGamesRecursive(
         games: MutableList<Game>,
         files: Array<CheapDocument>,
-        visitedDirectories: MutableSet<String>
+        visitedDirectories: MutableSet<String>,
+        rootCanonicalPath: String?
     ) {
         files.forEach { document ->
             val filename = document.filename
@@ -83,11 +95,18 @@ object GameHelper {
                 } else {
                     document.uri.toString()
                 }
+                if (rootCanonicalPath != null &&
+                    document.uri.scheme == "file" &&
+                    !directoryKey.startsWith(rootCanonicalPath + File.separator)
+                ) {
+                    return@forEach
+                }
                 if (visitedDirectories.add(directoryKey)) {
                     addGamesRecursive(
                         games,
                         FileUtil.listFiles(document.uri),
-                        visitedDirectories
+                        visitedDirectories,
+                        rootCanonicalPath
                     )
                 }
             } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
