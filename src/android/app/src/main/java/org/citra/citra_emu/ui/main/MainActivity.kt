@@ -237,37 +237,48 @@ class MainActivity :
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
             .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
 
-        if (firstTimeSetup) {
+        if (firstTimeSetup || homeViewModel.isPickingUserDir.value) {
             return
         }
 
         if (!BuildUtil.isGooglePlayBuild) {
-            fun requestMissingFilesystemPermission() =
-                GrantMissingFilesystemPermissionFragment.newInstance()
-                    .show(supportFragmentManager, GrantMissingFilesystemPermissionFragment.TAG)
-
             if (supportFragmentManager.findFragmentByTag(
                     GrantMissingFilesystemPermissionFragment.TAG
-                ) ==
-                null
+                ) == null
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     if (!Environment.isExternalStorageManager()) {
-                        requestMissingFilesystemPermission()
+                        GrantMissingFilesystemPermissionFragment.newInstance()
+                            .show(
+                                supportFragmentManager,
+                                GrantMissingFilesystemPermissionFragment.TAG
+                            )
                     }
-                } else {
-                    if (ContextCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        requestMissingFilesystemPermission()
-                    }
+                } else if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    GrantMissingFilesystemPermissionFragment.newInstance()
+                        .show(
+                            supportFragmentManager,
+                            GrantMissingFilesystemPermissionFragment.TAG
+                        )
                 }
             }
-        }
 
-        if (homeViewModel.isPickingUserDir.value) {
+            val filesystemPermissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            if (!filesystemPermissionGranted) return
+
+            // Vanilla builds use the app-managed Download/Azahar directory and do not
+            // require a Storage Access Framework folder selection.
             return
         }
 
@@ -275,21 +286,11 @@ class MainActivity :
             SelectUserDirectoryDialogFragment.newInstance(this)
                 .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
             return
-        } else if (CitraDirectoryUtils.needToUpdateManually()) {
-            UpdateUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
-            return
         }
 
-        if (!BuildUtil.isGooglePlayBuild) {
-            if (supportFragmentManager.findFragmentByTag(SelectUserDirectoryDialogFragment.TAG) ==
-                null
-            ) {
-                if (NativeLibrary.getUserDirectory() == "") {
-                    SelectUserDirectoryDialogFragment.newInstance(this)
-                        .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
-                }
-            }
+        if (CitraDirectoryUtils.needToUpdateManually()) {
+            UpdateUserDirectoryDialogFragment.newInstance(this)
+                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
         }
     }
 
