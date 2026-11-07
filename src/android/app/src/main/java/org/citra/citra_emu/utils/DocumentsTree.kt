@@ -192,8 +192,10 @@ class DocumentsTree {
             document.name = destination.name!!
             document.isDirectory = destination.isDirectory
             document.loaded = true
-            sourceNode.uri!!.inputStream().use { input ->
-                destination.uri.outputStream().use { output -> input.copyTo(output) }
+            with(FileUtil) {
+                sourceNode.uri!!.inputStream().use { input ->
+                    destination.uri.outputStream().use { output -> input.copyTo(output) }
+                }
             }
             destinationNode.addChild(document)
             return true
