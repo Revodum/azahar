@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Environment
+import java.io.File
 import androidx.core.net.toUri
 import androidx.core.os.BundleCompat
 import androidx.preference.PreferenceManager
@@ -32,10 +34,17 @@ object GameHelper {
         val games = mutableListOf<Game>()
         val context = CitraApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
+        val gamesDir = if (BuildUtil.isGooglePlayBuild) {
+            preferences.getString(KEY_GAME_PATH, "")
+        } else {
+            File(Environment.getExternalStorageDirectory(), "Download").apply {
+                if (!exists()) mkdirs()
+            }.absolutePath
+        }
         val gamesUri = Uri.parse(gamesDir)
 
-        addGamesRecursive(games, FileUtil.listFiles(gamesUri), 3)
+        val visitedDirectories = mutableSetOf<String>()
+        addGamesRecursive(games, FileUtil.listFiles(gamesUri), visitedDirectories)
         NativeLibrary.getInstalledGamePaths().forEach {
             games.add(
                 getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
@@ -59,30 +68,34 @@ object GameHelper {
     private fun addGamesRecursive(
         games: MutableList<Game>,
         files: Array<CheapDocument>,
-        depth: Int
+        visitedDirectories: MutableSet<String>
     ) {
-        if (depth <= 0) {
-            return
-        }
-
-        files.forEach {
-            val filename = FileUtil.getFilename(it.uri)
-            if (filename.startsWith(".")) {
-                return@forEach
-            }
-            if (it.isDirectory) {
-                addGamesRecursive(games, FileUtil.listFiles(it.uri), depth - 1)
-            } else {
-                if (Game.extensions.contains(FileUtil.getExtension(it.uri))) {
-                    games.add(
-                        getGame(
-                            it.uri,
-                            isInstalled = false,
-                            addedToLibrary = true,
-                            Game.MediaType.GAME_CARD
-                        )
+        files.forEach { document ->
+            val filename = document.filename
+            if (filename.startsWith(".")) return@forEach
+            if (document.isDirectory) {
+                val directoryKey = if (document.uri.scheme == "file") {
+                    runCatching { File(document.uri.path!!).canonicalPath }
+                        .getOrDefault(document.uri.toString())
+                } else {
+                    document.uri.toString()
+                }
+                if (visitedDirectories.add(directoryKey)) {
+                    addGamesRecursive(
+                        games,
+                        FileUtil.listFiles(document.uri),
+                        visitedDirectories
                     )
                 }
+            } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
+                games.add(
+                    getGame(
+                        document.uri,
+                        isInstalled = false,
+                        addedToLibrary = true,
+                        Game.MediaType.GAME_CARD
+                    )
+                )
             }
         }
     }
@@ -93,7 +106,7 @@ object GameHelper {
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
     ): Game {
-        val filePath = uri.toString()
+        val filePath = if (uri.scheme == "file") uri.path ?: uri.toString() else uri.toString()
         var nativePath: String? = null
         var gameInfo: GameInfo?
         if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
@@ -178,7 +191,9 @@ object GameHelper {
 
         val uri = getLaunchUri(intent) ?: return null
         return try {
-            if (BuildUtil.isGooglePlayBuild || uri.toString().startsWith("!")) {
+            if (BuildUtil.isGooglePlayBuild || uri.scheme == "file" ||
+                uri.toString().startsWith("!")
+            ) {
                 getGame(
                     uri,
                     isInstalled = false,
