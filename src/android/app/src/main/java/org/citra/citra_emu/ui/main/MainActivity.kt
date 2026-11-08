@@ -99,11 +99,14 @@ class MainActivity :
             DirectoryInitialization.areCitraDirectoriesReady() &&
             !CitraDirectoryUtils.needToUpdateManually()
         ) {
-            // load the global settings from the config file at program launch
+            StartupDiagnostics.mark("MainActivity.onCreate: loading global settings")
             SettingsFile.loadGlobalSettings(CitraSettings.activeSettings)
+            StartupDiagnostics.mark("MainActivity.onCreate: global settings loaded")
             GamepadHelper.migrateGamepadSharedPrefsToActiveSettings()
+            StartupDiagnostics.mark("MainActivity.onCreate: gamepad preferences migrated")
         }
 
+        StartupDiagnostics.mark("MainActivity.onCreate: applying theme")
         ThemeUtil.themeChangeListener(this)
         ThemeUtil.setTheme(this)
         super.onCreate(savedInstanceState)
@@ -152,6 +155,7 @@ class MainActivity :
 
         var applicationsClickTimestamp = TimeSource.Monotonic.markNow()
 
+        StartupDiagnostics.mark("MainActivity.onCreate: locating navigation host")
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
         StartupDiagnostics.mark("MainActivity.onCreate: setting up navigation")
