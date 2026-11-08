@@ -444,26 +444,42 @@ void InitializeGpuDriver(const std::string& hook_lib_dir, const std::string& cus
     const char* file_redirect_dir_{};
     int featureFlags{};
 
+    LOG_INFO(Frontend,
+             "GPU driver initialization: hookLibDir='{}', customDriverDir='{}', "
+             "customDriverName='{}', fileRedirectDir='{}'",
+             hook_lib_dir, custom_driver_dir, custom_driver_name, file_redirect_dir);
+
     // Enable driver file redirection when renderer debugging is enabled.
     if (Settings::values.renderer_debug && file_redirect_dir.size()) {
         featureFlags |= ADRENOTOOLS_DRIVER_FILE_REDIRECT;
         file_redirect_dir_ = file_redirect_dir.c_str();
     }
 
-    // Try to load a custom driver.
+    // Try to load the selected custom driver and report whether the hook accepted it.
     if (custom_driver_name.size()) {
+        LOG_INFO(Frontend, "Attempting to load custom Vulkan driver '{}{}'",
+                 custom_driver_dir, custom_driver_name);
         handle = adrenotools_open_libvulkan(
             RTLD_NOW, featureFlags | ADRENOTOOLS_DRIVER_CUSTOM, nullptr, hook_lib_dir.c_str(),
             custom_driver_dir.c_str(), custom_driver_name.c_str(), file_redirect_dir_, nullptr);
+        LOG_INFO(Frontend, "Custom Vulkan driver load result: {}",
+                 handle ? "success" : "failed");
+    } else {
+        LOG_WARNING(Frontend, "No custom Vulkan driver selected; using system driver");
     }
 
-    // Try to load the system driver.
+    // Try to load the system driver only if the custom driver could not be loaded.
     if (!handle) {
+        LOG_INFO(Frontend, "Attempting to load the system Vulkan driver");
         handle = adrenotools_open_libvulkan(RTLD_NOW, featureFlags, nullptr, hook_lib_dir.c_str(),
                                             nullptr, nullptr, file_redirect_dir_, nullptr);
+        LOG_INFO(Frontend, "System Vulkan driver load result: {}",
+                 handle ? "success" : "failed");
     }
 
     vulkan_library = std::make_shared<Common::DynamicLibrary>(handle);
+    LOG_INFO(Frontend, "Vulkan library initialization finished: {}",
+             handle ? "library handle available" : "no library handle");
 #endif
 }
 
