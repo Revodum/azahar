@@ -49,7 +49,9 @@ class GamesViewModel : ViewModel() {
         // Retrieve list of cached games
         val storedGames = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
             .getStringSet(GameHelper.KEY_GAMES, emptySet())
-        StartupDiagnostics.mark("GamesViewModel.init: cached game count=${storedGames?.size ?: -1}")
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: cached game count=${storedGames?.size ?: -1}"
+        )
         if (storedGames!!.isNotEmpty()) {
             val deserializedGames = mutableSetOf<Game>()
             storedGames.forEach {
@@ -77,9 +79,13 @@ class GamesViewModel : ViewModel() {
             }
             setGames(deserializedGames.toList())
         }
-        StartupDiagnostics.mark("GamesViewModel.init: cache loaded; starting first reload")
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: cache loaded; starting first reload"
+        )
         reloadGames(false)
-        StartupDiagnostics.mark("GamesViewModel.init: first reload scheduled")
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: first reload scheduled"
+        )
     }
 
     fun setGames(games: List<Game>) {
@@ -121,14 +127,20 @@ class GamesViewModel : ViewModel() {
             return
         }
         _isReloading.value = true
-        StartupDiagnostics.mark("GamesViewModel.reloadGames: scheduled directoryChanged=$directoryChanged")
+        StartupDiagnostics.mark(
+            "GamesViewModel.reloadGames: scheduled directoryChanged=$directoryChanged"
+        )
 
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    StartupDiagnostics.mark("GamesViewModel.reloadGames: calling GameHelper.getGames")
+                    StartupDiagnostics.mark(
+                        "GamesViewModel.reloadGames: calling GameHelper.getGames"
+                    )
                     val discoveredGames = GameHelper.getGames()
-                    StartupDiagnostics.mark("GamesViewModel.reloadGames: GameHelper returned ${discoveredGames.size} games")
+                    StartupDiagnostics.mark(
+                        "GamesViewModel.reloadGames: GameHelper returned ${discoveredGames.size} games"
+                    )
                     setGames(discoveredGames)
 
                     if (directoryChanged) {
@@ -136,10 +148,14 @@ class GamesViewModel : ViewModel() {
                     }
                 }
             } catch (e: Exception) {
-                StartupDiagnostics.mark("GamesViewModel.reloadGames: exception ${e.javaClass.name}: ${e.message}")
+                StartupDiagnostics.mark(
+                    "GamesViewModel.reloadGames: exception ${e.javaClass.name}: ${e.message}"
+                )
                 Log.error("[GamesViewModel] Failed to reload games: ${e.message}")
             } finally {
-                StartupDiagnostics.mark("GamesViewModel.reloadGames: finished")
+                StartupDiagnostics.mark(
+                    "GamesViewModel.reloadGames: finished"
+                )
                 _isReloading.value = false
             }
         }
