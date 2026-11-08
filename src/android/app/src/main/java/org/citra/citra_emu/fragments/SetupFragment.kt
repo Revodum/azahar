@@ -48,6 +48,7 @@ import org.citra.citra_emu.utils.CitraDirectoryHelper
 import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.PermissionsHandler
+import org.citra.citra_emu.utils.StartupDiagnostics
 import org.citra.citra_emu.utils.ViewUtils
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
@@ -636,10 +637,13 @@ class SetupFragment : Fragment() {
     }
 
     private fun finishSetup() {
+        StartupDiagnostics.mark("SetupFragment.finishSetup: entered")
         preferences.edit()
             .putBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, false)
             .apply()
+        StartupDiagnostics.mark("SetupFragment.finishSetup: first launch flag saved")
         mainActivity.finishSetup(binding.root.findNavController())
+        StartupDiagnostics.mark("SetupFragment.finishSetup: MainActivity.finishSetup returned")
     }
 
     fun pageForward() {
