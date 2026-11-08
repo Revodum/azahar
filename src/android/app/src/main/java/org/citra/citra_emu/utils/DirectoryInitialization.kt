@@ -40,25 +40,39 @@ object DirectoryInitialization {
 
         try {
             if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
-                StartupDiagnostics.mark("DirectoryInitialization.start: checking storage access")
+                StartupDiagnostics.mark(
+                    "DirectoryInitialization.start: checking storage access"
+                )
                 directoryState = if (hasWriteAccess(context)) {
-                    StartupDiagnostics.mark("DirectoryInitialization.start: storage access granted; resolving user directory")
+                    StartupDiagnostics.mark(
+                        "DirectoryInitialization.start: storage access granted; resolving user directory"
+                    )
                     if (setCitraUserDirectory()) {
                         val rootUri = if (BuildUtil.isGooglePlayBuild) {
                             Uri.parse(userPath)
                         } else {
                             Uri.fromFile(File(userPath!!))
                         }
-                        StartupDiagnostics.mark("DirectoryInitialization.start: user directory=$userPath")
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: user directory=$userPath"
+                        )
                         CitraApplication.documentsTree.setRoot(rootUri)
-                        StartupDiagnostics.mark("DirectoryInitialization.start: DocumentsTree root set")
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: DocumentsTree root set"
+                        )
                         NativeLibrary.createLogFile()
                         NativeLibrary.logUserDirectory(userPath.toString())
-                        StartupDiagnostics.mark("DirectoryInitialization.start: native user directory logged")
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: native user directory logged"
+                        )
                         NativeLibrary.createConfigFile()
-                        StartupDiagnostics.mark("DirectoryInitialization.start: config file created")
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: config file created"
+                        )
                         GpuDriverHelper.initializeDriverParameters()
-                        StartupDiagnostics.mark("DirectoryInitialization.start: GPU driver parameters initialized")
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: GPU driver parameters initialized"
+                        )
                         DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
                     } else {
                         DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
@@ -68,11 +82,15 @@ object DirectoryInitialization {
                 }
             }
         } catch (e: Exception) {
-            StartupDiagnostics.mark("DirectoryInitialization.start: exception ${e.javaClass.name}: ${e.message}")
+            StartupDiagnostics.mark(
+                "DirectoryInitialization.start: exception ${e.javaClass.name}: ${e.message}"
+            )
             Log.error("[DirectoryInitialization] Initialization failed: " + e.message)
             directoryState = DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
         } finally {
-            StartupDiagnostics.mark("DirectoryInitialization.start: finished with state=$directoryState")
+            StartupDiagnostics.mark(
+                "DirectoryInitialization.start: finished with state=$directoryState"
+            )
             isCitraDirectoryInitializationRunning.set(false)
         }
         return directoryState
