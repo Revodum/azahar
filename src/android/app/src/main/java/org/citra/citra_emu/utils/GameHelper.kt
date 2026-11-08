@@ -160,6 +160,7 @@ object GameHelper {
         val nativePath = when {
             BuildUtil.isGooglePlayBuild -> filePath
             uri.scheme == "fd" -> uri.toString()
+            uri.toString().startsWith("!") -> uri.toString()
             isVanillaFilePath -> "!$filePath"
             else -> "!" + NativeLibrary.getNativePath(uri)
         }
