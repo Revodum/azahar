@@ -8,6 +8,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedReader
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStreamReader
@@ -23,6 +24,7 @@ import org.citra.citra_emu.features.settings.model.IntListSetting
 import org.citra.citra_emu.features.settings.model.IntSetting
 import org.citra.citra_emu.features.settings.model.StringSetting
 import org.citra.citra_emu.features.settings.ui.SettingsActivityView
+import org.citra.citra_emu.utils.BuildUtil
 import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.DirectoryInitialization.userDirectory
 import org.citra.citra_emu.utils.Log
@@ -267,23 +269,36 @@ object SettingsFile {
         return Pair(key, value)
     }
 
+    private fun getUserDirectoryDocumentFile(): DocumentFile {
+        val context = CitraApplication.appContext
+        val path = checkNotNull(userDirectory) {
+            "Azahar user directory is not initialized"
+        }
+        return if (BuildUtil.isGooglePlayBuild) {
+            DocumentFile.fromTreeUri(context, Uri.parse(path))
+                ?: throw IllegalStateException("Invalid SAF user directory: $path")
+        } else {
+            DocumentFile.fromFile(File(path))
+        }
+    }
+
     fun getSettingsFile(fileName: String): DocumentFile {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
-        val configDirectory = root!!.findFile(FILE_NAME_CONFIG)
+        val root = getUserDirectoryDocumentFile()
+        val configDirectory = root.findFile(FILE_NAME_CONFIG)
         return configDirectory!!.findFile("$fileName.ini")!!
     }
 
     fun perAppFileExists(gameId: String): Boolean = findPerAppSettingsFile(gameId) != null
 
     private fun findPerAppSettingsFile(gameId: String): DocumentFile? {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
-        val configDir = root?.findFile(FILE_NAME_CONFIG) ?: return null
+        val root = getUserDirectoryDocumentFile()
+        val configDir = root.findFile(FILE_NAME_CONFIG) ?: return null
         val customDir = configDir.findFile(CUSTOM_DIR_NAME_CONFIG) ?: return null
         return customDir.findFile("$gameId.ini")
     }
 
     private fun getOrCreatePerAppSettingsFile(gameId: String): DocumentFile {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))!!
+        val root = getUserDirectoryDocumentFile()
         val configDir = root.findFile(FILE_NAME_CONFIG) ?: root.createDirectory(FILE_NAME_CONFIG)!!
         val customDir =
             configDir.findFile(CUSTOM_DIR_NAME_CONFIG)
@@ -297,9 +312,8 @@ object SettingsFile {
     }
 
     fun deletePerAppSettingsDirectory() {
-        val root =
-            DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
-        val configDir = root?.findFile(FILE_NAME_CONFIG)
+        val root = getUserDirectoryDocumentFile()
+        val configDir = root.findFile(FILE_NAME_CONFIG)
         val customDir = configDir?.findFile(CUSTOM_DIR_NAME_CONFIG)
         customDir ?: return
         if (!customDir.delete()) {
