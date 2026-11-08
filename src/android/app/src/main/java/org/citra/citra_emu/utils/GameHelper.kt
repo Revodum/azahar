@@ -164,12 +164,9 @@ object GameHelper {
             isVanillaFilePath -> "!$filePath"
             else -> "!" + NativeLibrary.getNativePath(uri)
         }
-        var gameInfo: GameInfo? = GameInfo(nativePath)
-
-        val valid = gameInfo.isValid()
-        if (!valid) {
-            gameInfo = null
-        }
+        val initialGameInfo = GameInfo(nativePath)
+        val valid = initialGameInfo.isValid()
+        val gameInfo: GameInfo? = if (valid) initialGameInfo else null
 
         val isEncrypted = gameInfo?.isEncrypted() == true
 
