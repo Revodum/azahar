@@ -58,7 +58,9 @@ object GameHelper {
         rootCanonicalPath?.let { visitedDirectories.add(it) }
         StartupDiagnostics.mark("GameHelper.getGames: listing root directory")
         val rootFiles = FileUtil.listFiles(gamesUri)
-        StartupDiagnostics.mark("GameHelper.getGames: root listing returned ${rootFiles.size} entries")
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: root listing returned ${rootFiles.size} entries"
+        )
         addGamesRecursive(
             games,
             rootFiles,
