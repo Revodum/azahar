@@ -155,20 +155,15 @@ object GameHelper {
     ): Game {
         StartupDiagnostics.mark("GameHelper.getGame: reading ${uri.lastPathSegment ?: uri}")
         val filePath = if (uri.scheme == "file") uri.path ?: uri.toString() else uri.toString()
-        var nativePath: String? = null
-        var gameInfo: GameInfo?
-        if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
-            filePath.startsWith("!")
-        ) {
-            gameInfo = GameInfo(filePath)
-        } else {
-            nativePath = if (uri.scheme == "fd") {
-                uri.toString()
-            } else {
-                "!" + NativeLibrary.getNativePath(uri)
-            }
-            gameInfo = GameInfo(nativePath)
+        val isVanillaFilePath = !BuildUtil.isGooglePlayBuild &&
+            (uri.scheme == "file" || (uri.scheme == null && filePath.startsWith("/")))
+        val nativePath = when {
+            BuildUtil.isGooglePlayBuild -> filePath
+            uri.scheme == "fd" -> uri.toString()
+            isVanillaFilePath -> "!$filePath"
+            else -> "!" + NativeLibrary.getNativePath(uri)
         }
+        var gameInfo: GameInfo? = GameInfo(nativePath)
 
         val valid = gameInfo.isValid()
         if (!valid) {
@@ -186,13 +181,7 @@ object GameHelper {
                 ).replace("[\\t\\n\\r]+".toRegex(), " "),
             filePath.replace("\n", " "),
             // TODO: This next line can be deduplicated but I don't want to right now -OS
-            if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
-                filePath.startsWith("!")
-            ) {
-                filePath
-            } else {
-                nativePath!!
-            },
+            nativePath,
             gameInfo?.getTitleID() ?: 0,
             mediaType,
             gameInfo?.getCompany() ?: "",
