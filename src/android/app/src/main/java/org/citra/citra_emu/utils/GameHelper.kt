@@ -21,6 +21,7 @@ import org.citra.citra_emu.R
 import org.citra.citra_emu.model.CheapDocument
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.GameInfo
+import org.citra.citra_emu.utils.StartupDiagnostics
 
 object GameHelper {
     const val KEY_GAME_PATH = "game_path"
@@ -31,6 +32,7 @@ object GameHelper {
     private lateinit var preferences: SharedPreferences
 
     fun getGames(): List<Game> {
+        StartupDiagnostics.mark("GameHelper.getGames: entered")
         val games = mutableListOf<Game>()
         val context = CitraApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
@@ -44,6 +46,7 @@ object GameHelper {
         if (!BuildUtil.isGooglePlayBuild) {
             preferences.edit().putString(KEY_GAME_PATH, gamesDir).apply()
         }
+        StartupDiagnostics.mark("GameHelper.getGames: scan root=$gamesDir")
         val gamesUri = Uri.parse(gamesDir)
         val rootCanonicalPath = if (BuildUtil.isGooglePlayBuild) {
             null
@@ -53,18 +56,24 @@ object GameHelper {
 
         val visitedDirectories = mutableSetOf<String>()
         rootCanonicalPath?.let { visitedDirectories.add(it) }
+        StartupDiagnostics.mark("GameHelper.getGames: listing root directory")
+        val rootFiles = FileUtil.listFiles(gamesUri)
+        StartupDiagnostics.mark("GameHelper.getGames: root listing returned ${rootFiles.size} entries")
         addGamesRecursive(
             games,
-            FileUtil.listFiles(gamesUri),
+            rootFiles,
             visitedDirectories,
             rootCanonicalPath
         )
+        StartupDiagnostics.mark("GameHelper.getGames: recursive scan finished; discovered ${games.size} file games")
+        StartupDiagnostics.mark("GameHelper.getGames: querying installed native games")
         NativeLibrary.getInstalledGamePaths().forEach {
             games.add(
                 getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
             )
         }
 
+        StartupDiagnostics.mark("GameHelper.getGames: installed game query finished; total ${games.size}")
         // Cache list of games found on disk
         val serializedGames = mutableSetOf<String>()
         games.forEach {
@@ -76,6 +85,7 @@ object GameHelper {
             .apply()
 
         cachedGameList = games.toMutableList()
+        StartupDiagnostics.mark("GameHelper.getGames: cache saved; returning ${games.size} games")
         return games.toList()
     }
 
@@ -128,6 +138,7 @@ object GameHelper {
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
     ): Game {
+        StartupDiagnostics.mark("GameHelper.getGame: reading ${uri.lastPathSegment ?: uri}")
         val filePath = if (uri.scheme == "file") uri.path ?: uri.toString() else uri.toString()
         var nativePath: String? = null
         var gameInfo: GameInfo?
