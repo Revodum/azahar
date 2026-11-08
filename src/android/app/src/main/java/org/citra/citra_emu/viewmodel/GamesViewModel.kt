@@ -23,6 +23,7 @@ import org.citra.citra_emu.utils.BuildUtil
 import org.citra.citra_emu.utils.FileUtil
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.Log
+import org.citra.citra_emu.utils.StartupDiagnostics
 
 class GamesViewModel : ViewModel() {
     val games get() = _games.asStateFlow()
@@ -44,9 +45,11 @@ class GamesViewModel : ViewModel() {
     private val _searchFocused = MutableStateFlow(false)
 
     init {
+        StartupDiagnostics.mark("GamesViewModel.init: entered")
         // Retrieve list of cached games
         val storedGames = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
             .getStringSet(GameHelper.KEY_GAMES, emptySet())
+        StartupDiagnostics.mark("GamesViewModel.init: cached game count=${storedGames?.size ?: -1}")
         if (storedGames!!.isNotEmpty()) {
             val deserializedGames = mutableSetOf<Game>()
             storedGames.forEach {
@@ -74,7 +77,9 @@ class GamesViewModel : ViewModel() {
             }
             setGames(deserializedGames.toList())
         }
+        StartupDiagnostics.mark("GamesViewModel.init: cache loaded; starting first reload")
         reloadGames(false)
+        StartupDiagnostics.mark("GamesViewModel.init: first reload scheduled")
     }
 
     fun setGames(games: List<Game>) {
@@ -116,19 +121,25 @@ class GamesViewModel : ViewModel() {
             return
         }
         _isReloading.value = true
+        StartupDiagnostics.mark("GamesViewModel.reloadGames: scheduled directoryChanged=$directoryChanged")
 
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    setGames(GameHelper.getGames())
+                    StartupDiagnostics.mark("GamesViewModel.reloadGames: calling GameHelper.getGames")
+                    val discoveredGames = GameHelper.getGames()
+                    StartupDiagnostics.mark("GamesViewModel.reloadGames: GameHelper returned ${discoveredGames.size} games")
+                    setGames(discoveredGames)
 
                     if (directoryChanged) {
                         setShouldSwapData(true)
                     }
                 }
             } catch (e: Exception) {
+                StartupDiagnostics.mark("GamesViewModel.reloadGames: exception ${e.javaClass.name}: ${e.message}")
                 Log.error("[GamesViewModel] Failed to reload games: ${e.message}")
             } finally {
+                StartupDiagnostics.mark("GamesViewModel.reloadGames: finished")
                 _isReloading.value = false
             }
         }
