@@ -38,23 +38,61 @@ object DirectoryInitialization {
             return null
         }
 
-        if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
-            directoryState = if (hasWriteAccess(context)) {
-                if (setCitraUserDirectory()) {
-                    CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
-                    NativeLibrary.createLogFile()
-                    NativeLibrary.logUserDirectory(userPath.toString())
-                    NativeLibrary.createConfigFile()
-                    GpuDriverHelper.initializeDriverParameters()
-                    DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+        try {
+            if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+                StartupDiagnostics.mark(
+                    "DirectoryInitialization.start: checking storage access"
+                )
+                directoryState = if (hasWriteAccess(context)) {
+                    StartupDiagnostics.mark(
+                        "DirectoryInitialization.start: storage access granted; resolving user directory"
+                    )
+                    if (setCitraUserDirectory()) {
+                        val rootUri = if (BuildUtil.isGooglePlayBuild) {
+                            Uri.parse(userPath)
+                        } else {
+                            Uri.fromFile(File(userPath!!))
+                        }
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: user directory=$userPath"
+                        )
+                        CitraApplication.documentsTree.setRoot(rootUri)
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: DocumentsTree root set"
+                        )
+                        NativeLibrary.createLogFile()
+                        NativeLibrary.logUserDirectory(userPath.toString())
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: native user directory logged"
+                        )
+                        NativeLibrary.createConfigFile()
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: config file created"
+                        )
+                        GpuDriverHelper.initializeDriverParameters()
+                        StartupDiagnostics.mark(
+                            "DirectoryInitialization.start: GPU driver parameters initialized"
+                        )
+                        DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED
+                    } else {
+                        DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    }
                 } else {
-                    DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+                    DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
                 }
-            } else {
-                DirectoryInitializationState.EXTERNAL_STORAGE_PERMISSION_NEEDED
             }
+        } catch (e: Exception) {
+            StartupDiagnostics.mark(
+                "DirectoryInitialization.start: exception ${e.javaClass.name}: ${e.message}"
+            )
+            Log.error("[DirectoryInitialization] Initialization failed: " + e.message)
+            directoryState = DirectoryInitializationState.CANT_FIND_EXTERNAL_STORAGE
+        } finally {
+            StartupDiagnostics.mark(
+                "DirectoryInitialization.start: finished with state=$directoryState"
+            )
+            isCitraDirectoryInitializationRunning.set(false)
         }
-        isCitraDirectoryInitializationRunning.set(false)
         return directoryState
     }
 
@@ -89,8 +127,17 @@ object DirectoryInitialization {
 
     fun setCitraUserDirectory(): Boolean {
         val dataPath = PermissionsHandler.citraDirectory
-        if (dataPath.toString().isNotEmpty()) {
-            userPath = dataPath.toString()
+        if (dataPath != Uri.EMPTY && dataPath.toString().isNotEmpty()) {
+            if (BuildUtil.isGooglePlayBuild) {
+                userPath = dataPath.toString()
+            } else {
+                val directory = File(dataPath.path ?: return false)
+                if (!directory.exists() && !directory.mkdirs()) return false
+                if (!directory.isDirectory || !directory.canWrite()) return false
+                val directoryUri = Uri.fromFile(directory)
+                PermissionsHandler.setCitraDirectory(directoryUri.toString())
+                userPath = directory.canonicalPath
+            }
             android.util.Log.d("[Azahar Frontend]", "[DirectoryInitialization] User Dir: $userPath")
             return true
         }

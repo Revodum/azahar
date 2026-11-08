@@ -19,7 +19,11 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.model.Game
+import org.citra.citra_emu.utils.BuildUtil
+import org.citra.citra_emu.utils.FileUtil
 import org.citra.citra_emu.utils.GameHelper
+import org.citra.citra_emu.utils.Log
+import org.citra.citra_emu.utils.StartupDiagnostics
 
 class GamesViewModel : ViewModel() {
     val games get() = _games.asStateFlow()
@@ -41,9 +45,13 @@ class GamesViewModel : ViewModel() {
     private val _searchFocused = MutableStateFlow(false)
 
     init {
+        StartupDiagnostics.mark("GamesViewModel.init: entered")
         // Retrieve list of cached games
         val storedGames = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
             .getStringSet(GameHelper.KEY_GAMES, emptySet())
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: cached game count=${storedGames?.size ?: -1}"
+        )
         if (storedGames!!.isNotEmpty()) {
             val deserializedGames = mutableSetOf<Game>()
             storedGames.forEach {
@@ -54,9 +62,15 @@ class GamesViewModel : ViewModel() {
                     return@forEach
                 }
 
-                val gameExists =
-                    DocumentFile.fromSingleUri(CitraApplication.appContext, Uri.parse(game.path))
-                        ?.exists()
+                val gameExists = if (BuildUtil.isGooglePlayBuild) {
+                    DocumentFile.fromSingleUri(
+                        CitraApplication.appContext,
+                        Uri.parse(game.path)
+                    )?.exists()
+                } else {
+                    // Vanilla stores ordinary filesystem paths, not SAF document URIs.
+                    runCatching { FileUtil.exists(game.path) }.getOrDefault(false)
+                }
                 if (gameExists == true) {
                     deserializedGames.add(game)
                 } else if (game.isInstalled) {
@@ -65,7 +79,13 @@ class GamesViewModel : ViewModel() {
             }
             setGames(deserializedGames.toList())
         }
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: cache loaded; starting first reload"
+        )
         reloadGames(false)
+        StartupDiagnostics.mark(
+            "GamesViewModel.init: first reload scheduled"
+        )
     }
 
     fun setGames(games: List<Game>) {
@@ -107,15 +127,36 @@ class GamesViewModel : ViewModel() {
             return
         }
         _isReloading.value = true
+        StartupDiagnostics.mark(
+            "GamesViewModel.reloadGames: scheduled directoryChanged=$directoryChanged"
+        )
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                setGames(GameHelper.getGames())
-                _isReloading.value = false
+            try {
+                withContext(Dispatchers.IO) {
+                    StartupDiagnostics.mark(
+                        "GamesViewModel.reloadGames: calling GameHelper.getGames"
+                    )
+                    val discoveredGames = GameHelper.getGames()
+                    StartupDiagnostics.mark(
+                        "GamesViewModel.reloadGames: GameHelper returned ${discoveredGames.size} games"
+                    )
+                    setGames(discoveredGames)
 
-                if (directoryChanged) {
-                    setShouldSwapData(true)
+                    if (directoryChanged) {
+                        setShouldSwapData(true)
+                    }
                 }
+            } catch (e: Exception) {
+                StartupDiagnostics.mark(
+                    "GamesViewModel.reloadGames: exception ${e.javaClass.name}: ${e.message}"
+                )
+                Log.error("[GamesViewModel] Failed to reload games: ${e.message}")
+            } finally {
+                StartupDiagnostics.mark(
+                    "GamesViewModel.reloadGames: finished"
+                )
+                _isReloading.value = false
             }
         }
     }

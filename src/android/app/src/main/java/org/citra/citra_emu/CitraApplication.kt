@@ -10,12 +10,14 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import org.citra.citra_emu.utils.BuildUtil
 import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.DocumentsTree
 import org.citra.citra_emu.utils.GraphicsUtil
 import org.citra.citra_emu.utils.Log
 import org.citra.citra_emu.utils.MemoryUtil
 import org.citra.citra_emu.utils.PermissionsHandler
+import org.citra.citra_emu.utils.StartupDiagnostics
 
 class CitraApplication : Application() {
     private fun createNotificationChannel() {
@@ -50,15 +52,26 @@ class CitraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         application = this
+        if (!BuildUtil.isGooglePlayBuild) {
+            StartupDiagnostics.startSession()
+            StartupDiagnostics.mark("CitraApplication.onCreate: application context ready")
+        }
         documentsTree = DocumentsTree()
+        StartupDiagnostics.mark("CitraApplication.onCreate: DocumentsTree created")
         if (PermissionsHandler.hasWriteAccess(applicationContext)) {
+            StartupDiagnostics.mark("CitraApplication.onCreate: DirectoryInitialization starting")
             DirectoryInitialization.start()
+            StartupDiagnostics.mark("CitraApplication.onCreate: DirectoryInitialization finished")
         }
 
+        StartupDiagnostics.mark("CitraApplication.onCreate: NativeLibrary.logDeviceInfo starting")
         NativeLibrary.logDeviceInfo()
+        StartupDiagnostics.mark("CitraApplication.onCreate: NativeLibrary.logDeviceInfo finished")
         logDeviceInfo()
         createNotificationChannel()
+        StartupDiagnostics.mark("CitraApplication.onCreate: notification channel created")
         NativeLibrary.playTimeManagerInit()
+        StartupDiagnostics.mark("CitraApplication.onCreate: play time manager initialized")
     }
 
     fun logDeviceInfo() {

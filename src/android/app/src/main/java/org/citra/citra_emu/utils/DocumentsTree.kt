@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
+import java.io.File
 import java.io.IOException
 import java.net.URLDecoder
 import java.nio.file.Paths
@@ -31,7 +32,17 @@ class DocumentsTree {
     fun setRoot(rootUri: Uri?) {
         root = null
         root = DocumentsNode()
-        root!!.uri = rootUri
+        val normalizedRootUri = if (
+            !BuildUtil.isGooglePlayBuild &&
+            rootUri != null &&
+            rootUri.scheme == null &&
+            rootUri.path?.startsWith("/") == true
+        ) {
+            Uri.fromFile(File(rootUri.path!!))
+        } else {
+            rootUri
+        }
+        root!!.uri = normalizedRootUri
         root!!.isDirectory = true
     }
 
@@ -164,8 +175,12 @@ class DocumentsTree {
         val sourceNode = resolvePath(sourcePath) ?: return false
         val destinationNode = resolvePath(destinationParentPath) ?: return false
         try {
-            val destinationParent =
-                DocumentFile.fromTreeUri(context, destinationNode.uri!!) ?: return false
+            val destinationParentUri = destinationNode.uri!!
+            val destinationParent = if (destinationParentUri.scheme == "file") {
+                DocumentFile.fromFile(File(destinationParentUri.path!!))
+            } else {
+                DocumentFile.fromTreeUri(context, destinationParentUri)
+            } ?: return false
             val filename = URLDecoder.decode(destinationFilename, "UTF-8")
             val destination = destinationParent.createFile(
                 "application/octet-stream",
@@ -177,16 +192,11 @@ class DocumentsTree {
             document.name = destination.name!!
             document.isDirectory = destination.isDirectory
             document.loaded = true
-            val input = context.contentResolver.openInputStream(sourceNode.uri!!)!!
-            val output = context.contentResolver.openOutputStream(destination.uri, "wt")!!
-            val buffer = ByteArray(1024)
-            var len: Int
-            while (input.read(buffer).also { len = it } != -1) {
-                output.write(buffer, 0, len)
+            with(FileUtil) {
+                sourceNode.uri!!.inputStream().use { input ->
+                    destination.uri.outputStream().use { output -> input.copyTo(output) }
+                }
             }
-            input.close()
-            output.flush()
-            output.close()
             destinationNode.addChild(document)
             return true
         } catch (e: Exception) {
@@ -199,12 +209,20 @@ class DocumentsTree {
         val node = resolvePath(filepath) ?: return false
         try {
             val filename = URLDecoder.decode(destinationFilename, FileUtil.DECODE_METHOD)
-            val newUri = DocumentsContract.renameDocument(
-                context.contentResolver,
-                node.uri!!,
-                filename
-            )
-            node.rename(filename, newUri)
+            val nodeUri = node.uri!!
+            if (nodeUri.scheme == "file") {
+                val source = File(nodeUri.path!!)
+                val target = File(source.parentFile, filename)
+                if (!source.renameTo(target)) return false
+                node.rename(filename, Uri.fromFile(target))
+            } else {
+                val newUri = DocumentsContract.renameDocument(
+                    context.contentResolver,
+                    nodeUri,
+                    filename
+                )
+                node.rename(filename, newUri)
+            }
             return true
         } catch (e: Exception) {
             error("[DocumentsTree]: Cannot rename file, error: " + e.message)
@@ -217,11 +235,21 @@ class DocumentsTree {
         val sourceDirNode = resolvePath(sourceDirPath) ?: return false
         val destDirNode = resolvePath(destDirPath) ?: return false
         try {
-            val newUri = DocumentsContract.moveDocument(
+            val sourceUri = sourceFileNode.uri!!
+            val sourceDirectoryUri = sourceDirNode.uri!!
+            val destinationDirectoryUri = destDirNode.uri!!
+            if (sourceUri.scheme == "file" && destinationDirectoryUri.scheme == "file") {
+                val source = File(sourceUri.path!!)
+                val destination = File(destinationDirectoryUri.path!!, filename)
+                if (!source.renameTo(destination)) return false
+                setRoot(root?.uri)
+                return true
+            }
+            DocumentsContract.moveDocument(
                 context.contentResolver,
-                sourceFileNode.uri!!,
-                sourceDirNode.uri!!,
-                destDirNode.uri!!
+                sourceUri,
+                sourceDirectoryUri,
+                destinationDirectoryUri
             )
             updateDocumentLocation("$sourceDirPath/$filename", "$destDirPath/$filename")
             return true
@@ -234,9 +262,13 @@ class DocumentsTree {
     fun deleteDocument(filepath: String): Boolean {
         val node = resolvePath(filepath) ?: return false
         try {
-            if (!DocumentsContract.deleteDocument(context.contentResolver, node.uri!!)) {
-                return false
+            val nodeUri = node.uri!!
+            val deleted = if (nodeUri.scheme == "file") {
+                File(nodeUri.path!!).delete()
+            } else {
+                DocumentsContract.deleteDocument(context.contentResolver, nodeUri)
             }
+            if (!deleted) return false
             if (node.parent != null) {
                 node.parent!!.removeChild(node)
             }

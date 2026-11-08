@@ -7,9 +7,11 @@ package org.citra.citra_emu.utils
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.system.Os
 import android.util.Pair
+import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.BufferedInputStream
@@ -34,6 +36,24 @@ object FileUtil {
 
     val context: Context get() = CitraApplication.appContext
 
+    private fun isFileUri(uri: Uri): Boolean =
+        uri.scheme == "file" || (uri.scheme == null && uri.path?.startsWith("/") == true)
+
+    private fun fileFromUri(uri: Uri): File? = if (isFileUri(uri)) uri.path?.let(::File) else null
+
+    private fun directoryDocument(uri: Uri): DocumentFile? =
+        fileFromUri(uri)?.let { DocumentFile.fromFile(it) }
+            ?: DocumentFile.fromTreeUri(context, uri)
+
+    private fun inputStreamFor(uri: Uri): InputStream? =
+        fileFromUri(uri)?.inputStream() ?: context.contentResolver.openInputStream(uri)
+
+    private fun outputStreamFor(uri: Uri, mode: String = "wt"): OutputStream? =
+        fileFromUri(uri)?.let { file ->
+            file.parentFile?.mkdirs()
+            FileOutputStream(file, mode == "wa")
+        } ?: context.contentResolver.openOutputStream(uri, mode)
+
     /**
      * Create a file from directory with filename.
      *
@@ -45,8 +65,7 @@ object FileUtil {
     fun createFile(directory: String, filename: String): DocumentFile? {
         try {
             val directoryUri = Uri.parse(directory)
-            val parent = DocumentFile.fromTreeUri(context, directoryUri)
-                ?: return null
+            val parent = directoryDocument(directoryUri) ?: return null
             val decodedFilename = URLDecoder.decode(filename, DECODE_METHOD)
             val extensionPosition = decodedFilename.lastIndexOf('.')
 
@@ -79,9 +98,7 @@ object FileUtil {
     fun createDir(directory: String, directoryName: String): DocumentFile? {
         try {
             val directoryUri = Uri.parse(directory)
-            val parent: DocumentFile =
-                DocumentFile.fromTreeUri(context, directoryUri)
-                    ?: return null
+            val parent: DocumentFile = directoryDocument(directoryUri) ?: return null
             val decodedDirectoryName = URLDecoder.decode(directoryName, DECODE_METHOD)
             val exists = parent.findFile(decodedDirectoryName)
             return exists ?: parent.createDirectory(decodedDirectoryName)
@@ -101,16 +118,24 @@ object FileUtil {
     @JvmStatic
     fun openContentUri(path: String, openMode: String): Int {
         try {
-            context
-                .contentResolver
-                .openFileDescriptor(Uri.parse(path), openMode)
-                .use { parcelFileDescriptor ->
-                    if (parcelFileDescriptor == null) {
-                        Log.error("[FileUtil]: Cannot get the file descriptor from uri: $path")
-                        return -1
-                    }
-                    return parcelFileDescriptor.detachFd()
+            val uri = Uri.parse(path)
+            val descriptor = fileFromUri(uri)?.let {
+                val mode = if (openMode == "rwa") {
+                    ParcelFileDescriptor.MODE_READ_WRITE or
+                        ParcelFileDescriptor.MODE_APPEND or
+                        ParcelFileDescriptor.MODE_CREATE
+                } else {
+                    ParcelFileDescriptor.parseMode(openMode)
                 }
+                ParcelFileDescriptor.open(it, mode)
+            } ?: context.contentResolver.openFileDescriptor(uri, openMode)
+            descriptor.use { parcelFileDescriptor ->
+                if (parcelFileDescriptor == null) {
+                    Log.error("[FileUtil]: Cannot get the file descriptor from uri: $path")
+                    return -1
+                }
+                return parcelFileDescriptor.detachFd()
+            }
         } catch (e: Exception) {
             Log.error("[FileUtil]: Cannot open content uri, error: " + e.message)
             return -1
@@ -134,6 +159,20 @@ object FileUtil {
         var c: Cursor? = null
         val results: MutableList<CheapDocument> = ArrayList()
         try {
+            val directory = fileFromUri(uri)
+            if (directory != null) {
+                directory.listFiles()?.forEach { child ->
+                    val extension = child.extension.lowercase()
+                    val mime = if (child.isDirectory) {
+                        DocumentsContract.Document.MIME_TYPE_DIR
+                    } else {
+                        MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                            ?: APPLICATION_OCTET_STREAM
+                    }
+                    results.add(CheapDocument(child.name, mime, Uri.fromFile(child)))
+                }
+                return results.toTypedArray()
+            }
             val docId = if (isRootTreeUri(uri)) {
                 DocumentsContract.getTreeDocumentId(uri)
             } else {
@@ -169,6 +208,7 @@ object FileUtil {
         var c: Cursor? = null
         try {
             val uri = Uri.parse(path)
+            fileFromUri(uri)?.let { return it.exists() }
             val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
             c = context.contentResolver.query(
                 uri,
@@ -199,6 +239,7 @@ object FileUtil {
         var c: Cursor? = null
         try {
             val uri = Uri.parse(path)
+            fileFromUri(uri)?.let { return it.isDirectory }
             c = context.contentResolver.query(uri, columns, null, null, null)
             c!!.moveToNext()
             val mimeType = c.getString(0)
@@ -226,10 +267,9 @@ object FileUtil {
                 return ""
             }
 
-            if (uri.scheme == "file") {
+            fileFromUri(uri)?.let {
                 BuildUtil.assertNotGooglePlay()
-                val file = File(uri.path!!)
-                return file.name
+                return it.name
             }
 
             val columns = arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
@@ -271,6 +311,7 @@ object FileUtil {
         var c: Cursor? = null
         try {
             val uri = Uri.parse(path)
+            fileFromUri(uri)?.let { return it.length() }
             c = context.contentResolver.query(
                 uri,
                 columns,
@@ -291,28 +332,21 @@ object FileUtil {
     @JvmStatic
     fun copyFile(sourceUri: Uri, destinationUri: Uri, destinationFilename: String): Boolean {
         try {
-            val destinationParent =
-                DocumentFile.fromTreeUri(context, destinationUri) ?: return false
+            val destinationParent = directoryDocument(destinationUri) ?: return false
             val filename = URLDecoder.decode(destinationFilename, "UTF-8")
             var destination = destinationParent.findFile(filename)
             if (destination == null) {
-                destination =
-                    destinationParent.createFile("application/octet-stream", filename)
+                destination = destinationParent.createFile("application/octet-stream", filename)
             }
-            if (destination == null) {
-                return false
-            }
+            if (destination == null) return false
 
-            val input = context.contentResolver.openInputStream(sourceUri)
-            val output = context.contentResolver.openOutputStream(destination.uri, "wt")
-            val buffer = ByteArray(1024)
-            var len: Int
-            while (input!!.read(buffer).also { len = it } != -1) {
-                output!!.write(buffer, 0, len)
+            inputStreamFor(sourceUri).use { input ->
+                outputStreamFor(destination.uri, "wt").use { output ->
+                    if (input == null || output == null) return false
+                    input.copyTo(output)
+                    output.flush()
+                }
             }
-            input.close()
-            output?.flush()
-            output?.close()
             return true
         } catch (e: Exception) {
             Log.error("[FileUtil]: Cannot copy file, error: " + e.message)
@@ -328,7 +362,7 @@ object FileUtil {
         var input: InputStream? = null
         var output: FileOutputStream? = null
         try {
-            input = context.contentResolver.openInputStream(sourceUri!!)
+            input = inputStreamFor(sourceUri!!)
             output = FileOutputStream("$destinationParentPath/$destinationFilename")
             val buffer = ByteArray(1024)
             var len: Int
@@ -368,9 +402,10 @@ object FileUtil {
 
             // Searching all files which need to be copied and struct the directory in destination
             while (dirs.isNotEmpty()) {
-                val fromDir = DocumentFile.fromTreeUri(context, dirs[0].first)
-                val toDir = DocumentFile.fromTreeUri(context, dirs[0].second)
+                val fromDir = directoryDocument(dirs[0].first)
+                val toDir = directoryDocument(dirs[0].second)
                 if (fromDir == null || toDir == null) {
+                    dirs.removeAt(0)
                     continue
                 }
 
@@ -429,6 +464,7 @@ object FileUtil {
     fun renameFile(path: String, destinationFilename: String): Boolean {
         try {
             val uri = Uri.parse(path)
+            fileFromUri(uri)?.let { return it.renameTo(File(it.parentFile, destinationFilename)) }
             DocumentsContract.renameDocument(context.contentResolver, uri, destinationFilename)
             return true
         } catch (e: Exception) {
@@ -440,6 +476,12 @@ object FileUtil {
     @JvmStatic
     fun moveFile(filename: String, sourceDirUriString: String, destDirUriString: String): Boolean {
         try {
+            val sourceDirFile = fileFromUri(sourceDirUriString.toUri())
+            val destDirFile = fileFromUri(destDirUriString.toUri())
+            if (sourceDirFile != null && destDirFile != null) {
+                val source = File(sourceDirFile, filename)
+                return source.renameTo(File(destDirFile, filename))
+            }
             val sourceFileUri = ("$sourceDirUriString%2F$filename").toUri()
             val sourceDirUri = sourceDirUriString.toUri()
             val destDirUri = destDirUriString.toUri()
@@ -460,6 +502,7 @@ object FileUtil {
     fun deleteDocument(path: String): Boolean {
         try {
             val uri = Uri.parse(path)
+            fileFromUri(uri)?.let { return it.delete() }
             DocumentsContract.deleteDocument(context.contentResolver, uri)
             return true
         } catch (e: Exception) {
@@ -483,7 +526,7 @@ object FileUtil {
 
         var offset = 0
         var numRead = 0
-        context.contentResolver.openInputStream(uri).use { inputStream ->
+        inputStreamFor(uri).use { inputStream ->
             while (offset < bytes.size &&
                 inputStream!!.read(bytes, offset, bytes.size - offset).also { numRead = it } >= 0
             ) {
@@ -528,7 +571,7 @@ object FileUtil {
 
     fun copyToExternalStorage(sourceFile: Uri, destinationDir: DocumentFile): DocumentFile? {
         val filename = getFilename(sourceFile)
-        val destinationFile = destinationDir.createFile("application/zip", filename)!!
+        val destinationFile = destinationDir.createFile("application/zip", filename) ?: return null
         destinationFile.outputStream().use { os ->
             sourceFile.inputStream().use { it.copyTo(os) }
         }
@@ -549,19 +592,23 @@ object FileUtil {
             false
         }
 
-    fun getFreeSpace(context: Context, uri: Uri?): Double = try {
-        val docTreeUri = DocumentsContract.buildDocumentUriUsingTree(
-            uri,
-            DocumentsContract.getTreeDocumentId(uri)
-        )
-        val pfd = context.contentResolver.openFileDescriptor(docTreeUri, "r")!!
-        val stats = Os.fstatvfs(pfd.fileDescriptor)
-        val spaceInGigaBytes = stats.f_bavail * stats.f_bsize / 1024.0 / 1024 / 1024
-        pfd.close()
-        spaceInGigaBytes
-    } catch (e: Exception) {
-        Log.error("[FileUtil] Cannot get storage size.")
-        0.0
+    fun getFreeSpace(context: Context, uri: Uri?): Double {
+        val file = uri?.let { fileFromUri(it) }
+        if (file != null) return file.usableSpace / 1024.0 / 1024 / 1024
+        return try {
+            val docTreeUri = DocumentsContract.buildDocumentUriUsingTree(
+                uri,
+                DocumentsContract.getTreeDocumentId(uri)
+            )
+            val pfd = context.contentResolver.openFileDescriptor(docTreeUri, "r")!!
+            val stats = Os.fstatvfs(pfd.fileDescriptor)
+            val spaceInGigaBytes = stats.f_bavail * stats.f_bsize / 1024.0 / 1024 / 1024
+            pfd.close()
+            spaceInGigaBytes
+        } catch (e: Exception) {
+            Log.error("[FileUtil] Cannot get storage size.")
+            0.0
+        }
     }
 
     fun closeQuietly(closeable: AutoCloseable?) {
@@ -592,20 +639,16 @@ object FileUtil {
             String(stream.readByteString(length.toInt()).toByteArray(), StandardCharsets.UTF_8)
         }
 
-    fun DocumentFile.inputStream(): InputStream =
-        CitraApplication.appContext.contentResolver.openInputStream(uri)!!
+    fun DocumentFile.inputStream(): InputStream = inputStreamFor(uri)!!
 
-    fun DocumentFile.outputStream(): OutputStream =
-        CitraApplication.appContext.contentResolver.openOutputStream(uri)!!
+    fun DocumentFile.outputStream(): OutputStream = outputStreamFor(uri, "wt")!!
 
-    fun Uri.inputStream(): InputStream =
-        CitraApplication.appContext.contentResolver.openInputStream(this)!!
+    fun Uri.inputStream(): InputStream = inputStreamFor(this)!!
 
-    fun Uri.outputStream(): OutputStream =
-        CitraApplication.appContext.contentResolver.openOutputStream(this)!!
+    fun Uri.outputStream(): OutputStream = outputStreamFor(this, "wt")!!
 
-    fun Uri.asDocumentFile(): DocumentFile? =
-        DocumentFile.fromSingleUri(CitraApplication.appContext, this)
+    fun Uri.asDocumentFile(): DocumentFile? = fileFromUri(this)?.let { DocumentFile.fromFile(it) }
+        ?: DocumentFile.fromSingleUri(CitraApplication.appContext, this)
 
     interface CopyDirListener {
         fun onSearchProgress(directoryName: String)

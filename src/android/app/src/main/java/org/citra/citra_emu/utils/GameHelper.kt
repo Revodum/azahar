@@ -8,9 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Environment
 import androidx.core.net.toUri
 import androidx.core.os.BundleCompat
 import androidx.preference.PreferenceManager
+import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.citra.citra_emu.CitraApplication
@@ -19,6 +21,7 @@ import org.citra.citra_emu.R
 import org.citra.citra_emu.model.CheapDocument
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.GameInfo
+import org.citra.citra_emu.utils.StartupDiagnostics
 
 object GameHelper {
     const val KEY_GAME_PATH = "game_path"
@@ -29,19 +32,61 @@ object GameHelper {
     private lateinit var preferences: SharedPreferences
 
     fun getGames(): List<Game> {
+        StartupDiagnostics.mark("GameHelper.getGames: entered")
         val games = mutableListOf<Game>()
         val context = CitraApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val gamesDir = preferences.getString(KEY_GAME_PATH, "")
+        val gamesDir = if (BuildUtil.isGooglePlayBuild) {
+            preferences.getString(KEY_GAME_PATH, "")
+        } else {
+            File(Environment.getExternalStorageDirectory(), "Download").apply {
+                if (!exists()) mkdirs()
+            }.absolutePath
+        }
+        if (!BuildUtil.isGooglePlayBuild) {
+            preferences.edit().putString(KEY_GAME_PATH, gamesDir).apply()
+        }
+        StartupDiagnostics.mark("GameHelper.getGames: scan root=$gamesDir")
         val gamesUri = Uri.parse(gamesDir)
+        val rootCanonicalPath = if (BuildUtil.isGooglePlayBuild) {
+            null
+        } else {
+            runCatching { File(gamesDir).canonicalPath }.getOrDefault(gamesDir)
+        }
 
-        addGamesRecursive(games, FileUtil.listFiles(gamesUri), 3)
+        val visitedDirectories = mutableSetOf<String>()
+        rootCanonicalPath?.let { visitedDirectories.add(it) }
+        StartupDiagnostics.mark("GameHelper.getGames: listing root directory")
+        val rootFiles = FileUtil.listFiles(gamesUri)
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: root listing returned ${rootFiles.size} entries"
+        )
+        addGamesRecursive(
+            games,
+            rootFiles,
+            visitedDirectories,
+            rootCanonicalPath
+        )
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: recursive scan finished; discovered ${games.size} file games"
+        )
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: querying installed native games"
+        )
         NativeLibrary.getInstalledGamePaths().forEach {
             games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
+                getGame(
+                    Uri.parse(it.path),
+                    isInstalled = true,
+                    addedToLibrary = true,
+                    it.mediaType
+                )
             )
         }
 
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: installed game query finished; total ${games.size}"
+        )
         // Cache list of games found on disk
         val serializedGames = mutableSetOf<String>()
         games.forEach {
@@ -53,36 +98,51 @@ object GameHelper {
             .apply()
 
         cachedGameList = games.toMutableList()
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: cache saved; returning ${games.size} games"
+        )
         return games.toList()
     }
 
     private fun addGamesRecursive(
         games: MutableList<Game>,
         files: Array<CheapDocument>,
-        depth: Int
+        visitedDirectories: MutableSet<String>,
+        rootCanonicalPath: String?
     ) {
-        if (depth <= 0) {
-            return
-        }
-
-        files.forEach {
-            val filename = FileUtil.getFilename(it.uri)
-            if (filename.startsWith(".")) {
-                return@forEach
-            }
-            if (it.isDirectory) {
-                addGamesRecursive(games, FileUtil.listFiles(it.uri), depth - 1)
-            } else {
-                if (Game.extensions.contains(FileUtil.getExtension(it.uri))) {
-                    games.add(
-                        getGame(
-                            it.uri,
-                            isInstalled = false,
-                            addedToLibrary = true,
-                            Game.MediaType.GAME_CARD
-                        )
+        files.forEach { document ->
+            val filename = document.filename
+            if (filename.startsWith(".")) return@forEach
+            if (document.isDirectory) {
+                val directoryKey = if (document.uri.scheme == "file") {
+                    runCatching { File(document.uri.path!!).canonicalPath }
+                        .getOrDefault(document.uri.toString())
+                } else {
+                    document.uri.toString()
+                }
+                if (rootCanonicalPath != null &&
+                    document.uri.scheme == "file" &&
+                    !directoryKey.startsWith(rootCanonicalPath + File.separator)
+                ) {
+                    return@forEach
+                }
+                if (visitedDirectories.add(directoryKey)) {
+                    addGamesRecursive(
+                        games,
+                        FileUtil.listFiles(document.uri),
+                        visitedDirectories,
+                        rootCanonicalPath
                     )
                 }
+            } else if (Game.extensions.contains(FileUtil.getExtension(document.uri))) {
+                games.add(
+                    getGame(
+                        document.uri,
+                        isInstalled = false,
+                        addedToLibrary = true,
+                        Game.MediaType.GAME_CARD
+                    )
+                )
             }
         }
     }
@@ -93,26 +153,20 @@ object GameHelper {
         addedToLibrary: Boolean,
         mediaType: Game.MediaType
     ): Game {
-        val filePath = uri.toString()
-        var nativePath: String? = null
-        var gameInfo: GameInfo?
-        if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
-            filePath.startsWith("!")
-        ) {
-            gameInfo = GameInfo(filePath)
-        } else {
-            nativePath = if (uri.scheme == "fd") {
-                uri.toString()
-            } else {
-                "!" + NativeLibrary.getNativePath(uri)
-            }
-            gameInfo = GameInfo(nativePath)
+        StartupDiagnostics.mark("GameHelper.getGame: reading ${uri.lastPathSegment ?: uri}")
+        val filePath = if (uri.scheme == "file") uri.path ?: uri.toString() else uri.toString()
+        val isVanillaFilePath = !BuildUtil.isGooglePlayBuild &&
+            (uri.scheme == "file" || (uri.scheme == null && filePath.startsWith("/")))
+        val nativePath = when {
+            BuildUtil.isGooglePlayBuild -> filePath
+            uri.scheme == "fd" -> uri.toString()
+            uri.toString().startsWith("!") -> uri.toString()
+            isVanillaFilePath -> "!$filePath"
+            else -> "!" + NativeLibrary.getNativePath(uri)
         }
-
-        val valid = gameInfo.isValid()
-        if (!valid) {
-            gameInfo = null
-        }
+        val initialGameInfo = GameInfo(nativePath)
+        val valid = initialGameInfo.isValid()
+        val gameInfo: GameInfo? = if (valid) initialGameInfo else null
 
         val isEncrypted = gameInfo?.isEncrypted() == true
 
@@ -125,13 +179,7 @@ object GameHelper {
                 ).replace("[\\t\\n\\r]+".toRegex(), " "),
             filePath.replace("\n", " "),
             // TODO: This next line can be deduplicated but I don't want to right now -OS
-            if (BuildUtil.isGooglePlayBuild || FileUtil.isNativePath(filePath) ||
-                filePath.startsWith("!")
-            ) {
-                filePath
-            } else {
-                nativePath!!
-            },
+            nativePath,
             gameInfo?.getTitleID() ?: 0,
             mediaType,
             gameInfo?.getCompany() ?: "",
@@ -178,7 +226,9 @@ object GameHelper {
 
         val uri = getLaunchUri(intent) ?: return null
         return try {
-            if (BuildUtil.isGooglePlayBuild || uri.toString().startsWith("!")) {
+            if (BuildUtil.isGooglePlayBuild || uri.scheme == "file" ||
+                FileUtil.isNativePath(uri.toString()) || uri.toString().startsWith("!")
+            ) {
                 getGame(
                     uri,
                     isInstalled = false,

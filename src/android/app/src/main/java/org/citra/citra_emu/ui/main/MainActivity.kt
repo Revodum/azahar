@@ -64,6 +64,7 @@ import org.citra.citra_emu.utils.FileBrowserHelper
 import org.citra.citra_emu.utils.InsetsHelper
 import org.citra.citra_emu.utils.PermissionsHandler
 import org.citra.citra_emu.utils.RefreshRateUtil
+import org.citra.citra_emu.utils.StartupDiagnostics
 import org.citra.citra_emu.utils.ThemeUtil
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
@@ -83,6 +84,7 @@ class MainActivity :
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        StartupDiagnostics.mark("MainActivity.onCreate: entered")
         RefreshRateUtil.enforceRefreshRate(this)
 
         val splashScreen = installSplashScreen()
@@ -97,18 +99,24 @@ class MainActivity :
             DirectoryInitialization.areCitraDirectoriesReady() &&
             !CitraDirectoryUtils.needToUpdateManually()
         ) {
-            // load the global settings from the config file at program launch
+            StartupDiagnostics.mark("MainActivity.onCreate: loading global settings")
             SettingsFile.loadGlobalSettings(CitraSettings.activeSettings)
+            StartupDiagnostics.mark("MainActivity.onCreate: global settings loaded")
             GamepadHelper.migrateGamepadSharedPrefsToActiveSettings()
+            StartupDiagnostics.mark("MainActivity.onCreate: gamepad preferences migrated")
         }
 
+        StartupDiagnostics.mark("MainActivity.onCreate: applying theme")
         ThemeUtil.themeChangeListener(this)
         ThemeUtil.setTheme(this)
         super.onCreate(savedInstanceState)
+        StartupDiagnostics.mark("MainActivity.onCreate: AppCompat onCreate finished")
         NativeLibrary.initMultiplayer()
+        StartupDiagnostics.mark("MainActivity.onCreate: multiplayer initialized")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        StartupDiagnostics.mark("MainActivity.onCreate: main layout attached")
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
@@ -147,9 +155,12 @@ class MainActivity :
 
         var applicationsClickTimestamp = TimeSource.Monotonic.markNow()
 
+        StartupDiagnostics.mark("MainActivity.onCreate: locating navigation host")
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
+        StartupDiagnostics.mark("MainActivity.onCreate: setting up navigation")
         setUpNavigation(savedInstanceState, navHostFragment.navController)
+        StartupDiagnostics.mark("MainActivity.onCreate: navigation setup returned")
         (binding.navigationView as NavigationBarView).setOnItemReselectedListener {
             when (it.itemId) {
                 R.id.gamesFragment -> {
@@ -237,37 +248,52 @@ class MainActivity :
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
             .getBoolean(CitraSettings.PREF_FIRST_APP_LAUNCH, true)
 
-        if (firstTimeSetup) {
+        if (firstTimeSetup || homeViewModel.isPickingUserDir.value) {
             return
         }
 
         if (!BuildUtil.isGooglePlayBuild) {
-            fun requestMissingFilesystemPermission() =
-                GrantMissingFilesystemPermissionFragment.newInstance()
-                    .show(supportFragmentManager, GrantMissingFilesystemPermissionFragment.TAG)
-
             if (supportFragmentManager.findFragmentByTag(
                     GrantMissingFilesystemPermissionFragment.TAG
-                ) ==
-                null
+                ) == null
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     if (!Environment.isExternalStorageManager()) {
-                        requestMissingFilesystemPermission()
+                        GrantMissingFilesystemPermissionFragment.newInstance()
+                            .show(
+                                supportFragmentManager,
+                                GrantMissingFilesystemPermissionFragment.TAG
+                            )
                     }
-                } else {
-                    if (ContextCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        requestMissingFilesystemPermission()
-                    }
+                } else if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    GrantMissingFilesystemPermissionFragment.newInstance()
+                        .show(
+                            supportFragmentManager,
+                            GrantMissingFilesystemPermissionFragment.TAG
+                        )
                 }
             }
-        }
 
-        if (homeViewModel.isPickingUserDir.value) {
+            val filesystemPermissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            if (!filesystemPermissionGranted) return
+
+            if (!DirectoryInitialization.areCitraDirectoriesReady()) {
+                DirectoryInitialization.start()
+            }
+
+            // Vanilla builds use the app-managed Download/Azahar directory and do not
+            // require a Storage Access Framework folder selection.
             return
         }
 
@@ -275,29 +301,21 @@ class MainActivity :
             SelectUserDirectoryDialogFragment.newInstance(this)
                 .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
             return
-        } else if (CitraDirectoryUtils.needToUpdateManually()) {
-            UpdateUserDirectoryDialogFragment.newInstance(this)
-                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
-            return
         }
 
-        if (!BuildUtil.isGooglePlayBuild) {
-            if (supportFragmentManager.findFragmentByTag(SelectUserDirectoryDialogFragment.TAG) ==
-                null
-            ) {
-                if (NativeLibrary.getUserDirectory() == "") {
-                    SelectUserDirectoryDialogFragment.newInstance(this)
-                        .show(supportFragmentManager, SelectUserDirectoryDialogFragment.TAG)
-                }
-            }
+        if (CitraDirectoryUtils.needToUpdateManually()) {
+            UpdateUserDirectoryDialogFragment.newInstance(this)
+                .show(supportFragmentManager, UpdateUserDirectoryDialogFragment.TAG)
         }
     }
 
     fun finishSetup(navController: NavController) {
+        StartupDiagnostics.mark("MainActivity.finishSetup: navigating to games screen")
         navController.navigate(R.id.action_firstTimeSetupFragment_to_gamesFragment)
         (binding.navigationView as NavigationBarView).setupWithNavController(navController)
         SettingsFile.loadGlobalSettings(CitraSettings.activeSettings)
         GamepadHelper.migrateGamepadSharedPrefsToActiveSettings()
+        StartupDiagnostics.mark("MainActivity.finishSetup: completed")
     }
 
     private fun setUpNavigation(savedInstanceState: Bundle?, navController: NavController) {
