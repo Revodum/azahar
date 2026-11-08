@@ -25,7 +25,9 @@ object StartupDiagnostics {
     private const val FILE_NAME = "azahar-startup-diagnostic.txt"
     private const val MAX_LOG_BYTES = 512 * 1024L
     private val lock = Any()
-    @Volatile private var reportFile: File? = null
+
+    @Volatile
+    private var reportFile: File? = null
 
     fun startSession() {
         val directory = File(Environment.getExternalStorageDirectory(), "Download/Azahar")
