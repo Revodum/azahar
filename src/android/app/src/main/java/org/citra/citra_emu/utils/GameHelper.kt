@@ -65,15 +65,26 @@ object GameHelper {
             visitedDirectories,
             rootCanonicalPath
         )
-        StartupDiagnostics.mark("GameHelper.getGames: recursive scan finished; discovered ${games.size} file games")
-        StartupDiagnostics.mark("GameHelper.getGames: querying installed native games")
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: recursive scan finished; discovered ${games.size} file games"
+        )
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: querying installed native games"
+        )
         NativeLibrary.getInstalledGamePaths().forEach {
             games.add(
-                getGame(Uri.parse(it.path), isInstalled = true, addedToLibrary = true, it.mediaType)
+                getGame(
+                    Uri.parse(it.path),
+                    isInstalled = true,
+                    addedToLibrary = true,
+                    it.mediaType
+                )
             )
         }
 
-        StartupDiagnostics.mark("GameHelper.getGames: installed game query finished; total ${games.size}")
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: installed game query finished; total ${games.size}"
+        )
         // Cache list of games found on disk
         val serializedGames = mutableSetOf<String>()
         games.forEach {
@@ -85,7 +96,9 @@ object GameHelper {
             .apply()
 
         cachedGameList = games.toMutableList()
-        StartupDiagnostics.mark("GameHelper.getGames: cache saved; returning ${games.size} games")
+        StartupDiagnostics.mark(
+            "GameHelper.getGames: cache saved; returning ${games.size} games"
+        )
         return games.toList()
     }
 
