@@ -65,6 +65,7 @@ import org.citra.citra_emu.utils.InsetsHelper
 import org.citra.citra_emu.utils.PermissionsHandler
 import org.citra.citra_emu.utils.RefreshRateUtil
 import org.citra.citra_emu.utils.ThemeUtil
+import org.citra.citra_emu.utils.StartupDiagnostics
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
 
@@ -83,6 +84,7 @@ class MainActivity :
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        StartupDiagnostics.mark("MainActivity.onCreate: entered")
         RefreshRateUtil.enforceRefreshRate(this)
 
         val splashScreen = installSplashScreen()
@@ -105,10 +107,13 @@ class MainActivity :
         ThemeUtil.themeChangeListener(this)
         ThemeUtil.setTheme(this)
         super.onCreate(savedInstanceState)
+        StartupDiagnostics.mark("MainActivity.onCreate: AppCompat onCreate finished")
         NativeLibrary.initMultiplayer()
+        StartupDiagnostics.mark("MainActivity.onCreate: multiplayer initialized")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        StartupDiagnostics.mark("MainActivity.onCreate: main layout attached")
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
@@ -149,7 +154,9 @@ class MainActivity :
 
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.fragment_container) as NavHostFragment
+        StartupDiagnostics.mark("MainActivity.onCreate: setting up navigation")
         setUpNavigation(savedInstanceState, navHostFragment.navController)
+        StartupDiagnostics.mark("MainActivity.onCreate: navigation setup returned")
         (binding.navigationView as NavigationBarView).setOnItemReselectedListener {
             when (it.itemId) {
                 R.id.gamesFragment -> {
@@ -299,10 +306,12 @@ class MainActivity :
     }
 
     fun finishSetup(navController: NavController) {
+        StartupDiagnostics.mark("MainActivity.finishSetup: navigating to games screen")
         navController.navigate(R.id.action_firstTimeSetupFragment_to_gamesFragment)
         (binding.navigationView as NavigationBarView).setupWithNavController(navController)
         SettingsFile.loadGlobalSettings(CitraSettings.activeSettings)
         GamepadHelper.migrateGamepadSharedPrefsToActiveSettings()
+        StartupDiagnostics.mark("MainActivity.finishSetup: completed")
     }
 
     private fun setUpNavigation(savedInstanceState: Bundle?, navController: NavController) {
