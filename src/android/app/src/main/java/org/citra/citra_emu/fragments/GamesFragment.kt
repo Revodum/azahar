@@ -41,6 +41,7 @@ import org.citra.citra_emu.features.settings.model.IntSetting
 import org.citra.citra_emu.features.updatechecker.UpdateChecker
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.utils.BuildUtil
+import org.citra.citra_emu.utils.StartupDiagnostics
 import org.citra.citra_emu.viewmodel.CompressProgressDialogViewModel
 import org.citra.citra_emu.viewmodel.GamesViewModel
 import org.citra.citra_emu.viewmodel.HomeViewModel
@@ -125,6 +126,7 @@ class GamesFragment : Fragment() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        StartupDiagnostics.mark("GamesFragment.onCreate: entered")
         super.onCreate(savedInstanceState)
         enterTransition = MaterialFadeThrough()
     }
@@ -134,18 +136,22 @@ class GamesFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        StartupDiagnostics.mark("GamesFragment.onCreateView: inflating layout")
         _binding = FragmentGamesBinding.inflate(inflater)
+        StartupDiagnostics.mark("GamesFragment.onCreateView: layout inflated")
         return binding.root
     }
 
     // This is using the correct scope, lint is just acting up
     @SuppressLint("UnsafeRepeatOnLifecycleDetector")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        StartupDiagnostics.mark("GamesFragment.onViewCreated: entered")
         homeViewModel.setNavigationVisibility(visible = true, animated = true)
         homeViewModel.setStatusBarShadeVisibility(visible = true)
 
         val inflater = LayoutInflater.from(requireContext())
 
+        StartupDiagnostics.mark("GamesFragment.onViewCreated: creating GameAdapter")
         gameAdapter = GameAdapter(
             requireActivity() as AppCompatActivity,
             inflater,
@@ -157,6 +163,7 @@ class GamesFragment : Fragment() {
             }
         )
 
+        StartupDiagnostics.mark("GamesFragment.onViewCreated: GameAdapter created")
         binding.gridGames.apply {
             layoutManager = GridLayoutManager(
                 requireContext(),
@@ -235,6 +242,7 @@ class GamesFragment : Fragment() {
         }
 
         setInsets()
+        StartupDiagnostics.mark("GamesFragment.onViewCreated: completed")
     }
 
     private fun getMajorVersion(version: String): Int? = version.split('.')[0].toIntOrNull()
@@ -295,6 +303,7 @@ class GamesFragment : Fragment() {
     }
 
     private fun setAdapter(games: List<Game>) {
+        StartupDiagnostics.mark("GamesFragment.setAdapter: games=${games.size}")
         val preferences = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
         if (preferences.getBoolean(CitraSettings.PREF_SHOW_HOME_APPS, false)) {
             (binding.gridGames.adapter as GameAdapter).submitList(games)
